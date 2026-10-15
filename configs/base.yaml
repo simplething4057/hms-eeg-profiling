@@ -1,0 +1,22 @@
+# 공통 설정 : 모든 노트북과 src 모듈이 이 값을 기준으로 동작
+paths:
+  data_dir: /kaggle/input/hms-harmful-brain-activity-classification
+  processed_dir: /kaggle/input/hms-processed
+  out_dir: /kaggle/working
+
+seed: 42
+n_folds: 5
+
+signal:
+  fs: 200              # EEG 샘플링 주파수 (Hz)
+  window_sec: 50       # 판정 구간 전체 길이
+  label_sec: 10        # 실제 판정 대상인 중앙 구간
+  bandpass: [0.5, 20]  # 대역 통과 필터 (Hz)
+
+labels:
+  classes: [seizure, lpd, gpd, lrda, grda, other]
+  high_vote: 10        # 고득표 기준 (코드북 4-2, nb01 결과로 확정)
+  seizure_pos: 0.5     # Seizure 이진 정답 기준 득표 비율
+
+eval:
+  target_specificity: 0.90
