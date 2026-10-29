@@ -1,0 +1,28 @@
+# 모델 가중치 (대용량 — Git LFS 또는 S3/ECR 별도 관리)
+models/
+*.pt
+*.onnx
+
+# 데이터
+data/
+*.csv
+*.parquet
+
+# Kaggle 노트북 출력
+kaggle_notebooks/.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# 환경 설정
+.env
+*.env
+
+# 빌드 산출물
+dist/
+*.egg-info/

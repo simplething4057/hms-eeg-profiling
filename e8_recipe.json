@@ -1,0 +1,15 @@
+{
+  "candidate": "E4+E5 + P1v2",
+  "models": [
+    "E4",
+    "E5"
+  ],
+  "dl_weight": 0.85,
+  "use_p1": true,
+  "temperature": 1.0,
+  "cv_kl_high_nested": 0.2955,
+  "dl_versions": {
+    "E4": 6,
+    "E5": 7
+  }
+}

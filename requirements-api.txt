@@ -1,0 +1,19 @@
+# FastAPI 서버
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+
+# 모델 추론
+lightgbm==4.3.0
+numpy==1.26.4
+
+# DL (선택, EC2에서는 CPU 빌드)
+# torch==2.3.0+cpu  # CPU 전용 빌드 (pip install torch --index-url https://download.pytorch.org/whl/cpu)
+# timm==0.9.16
+
+# 기존 src 의존성
+scipy==1.13.0
+scikit-learn==1.5.0
+pandas==2.2.2
+pyarrow==16.1.0
+pyyaml==6.0.1
