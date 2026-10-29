@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
@@ -120,7 +121,5 @@ def predict_batch(requests: list[PredictRequest]) -> list[PredictResponse]:
 
 
 # ── 대시보드 UI (StaticFiles — 마지막에 마운트) ───────────────────
-import os  # noqa: E402
-
 if os.path.isdir("static"):
     app.mount("/ui", StaticFiles(directory="static", html=True), name="static")

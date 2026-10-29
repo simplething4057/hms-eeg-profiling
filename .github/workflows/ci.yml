@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install ruff==0.4.4
-      - run: ruff check src/ api/ --ignore E501 || true
+      - run: ruff check src/ api/ --ignore E501
 
   # ── 2. 단위 테스트 (가중치 없이) ────────────────────────────────
   unit-tests:
