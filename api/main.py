@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.predict import ModelServer
 from api.schemas import (
@@ -116,3 +117,10 @@ def predict_batch(requests: list[PredictRequest]) -> list[PredictResponse]:
     if len(requests) > 64:
         raise HTTPException(status_code=400, detail="배치 최대 64개")
     return [predict(r) for r in requests]
+
+
+# ── 대시보드 UI (StaticFiles — 마지막에 마운트) ───────────────────
+import os  # noqa: E402
+
+if os.path.isdir("static"):
+    app.mount("/ui", StaticFiles(directory="static", html=True), name="static")

@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HMS EEG 판독 보조 대시보드</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.2/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#080e17;--surface:#0d1520;--surface2:#111d2b;--surface3:#162033;
+  --border:#1e2d3d;--border2:#243344;--fg:#cdd9e5;--fg-dim:#7d8f9c;
+  --fg-faint:#3d4f5e;--green:#3fb950;--green-d:#0d3320;--blue:#58a6ff;
+  --blue-d:#0a1f3a;--amber:#e3b341;--amber-d:#2d2008;--red:#f85149;
+  --red-d:#2d0d0b;--teal:#2ecdcb;--purple:#bc8cff;
+  --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans KR',system-ui,sans-serif;
+  color-scheme:dark;
+}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#f3f6fa;--surface:#ffffff;--surface2:#f0f4f8;--surface3:#e8eef5;
+  --border:#d0dae4;--border2:#c0ccd8;--fg:#1c2b3a;--fg-dim:#4e6070;
+  --fg-faint:#9ab0c0;--green:#1a7f37;--green-d:#d8f3e0;--blue:#0969da;
+  --blue-d:#dce8ff;--amber:#9a6700;--amber-d:#fdf0cc;--red:#cf222e;
+  --red-d:#ffdcda;--teal:#0e7d7b;--purple:#7139c0;color-scheme:light;
+}}
+:root[data-theme="light"]{
+  --bg:#f3f6fa;--surface:#ffffff;--surface2:#f0f4f8;--surface3:#e8eef5;
+  --border:#d0dae4;--border2:#c0ccd8;--fg:#1c2b3a;--fg-dim:#4e6070;
+  --fg-faint:#9ab0c0;--green:#1a7f37;--green-d:#d8f3e0;--blue:#0969da;
+  --blue-d:#dce8ff;--amber:#9a6700;--amber-d:#fdf0cc;--red:#cf222e;
+  --red-d:#ffdcda;--teal:#0e7d7b;--purple:#7139c0;color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px;line-height:1.5;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
+.header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);z-index:99;padding:0 max(20px,env(safe-area-inset-left,0px));margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px))) calc(-1*max(16px,env(safe-area-inset-right,0px)))}
+.header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:11px;flex-wrap:wrap}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.model-badge{background:var(--surface3);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal);letter-spacing:.05em;white-space:nowrap}
+.hdr-title{font-size:14px;font-weight:600;color:var(--fg)}
+.hdr-sub{font-size:11px;color:var(--fg-dim);font-family:var(--mono);margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.live-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.live-dot.err{background:var(--red);box-shadow:0 0 6px var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.live-label{font-size:11px;color:var(--green);font-family:var(--mono);font-weight:600}
+.live-label.warn{color:var(--amber)}
+.live-label.err{color:var(--red)}
+.theme-btn{background:var(--surface2);border:1px solid var(--border);color:var(--fg-dim);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer}
+.theme-btn:hover{color:var(--fg);border-color:var(--blue)}
+.page{max-width:1200px;margin:0 auto;padding-block:24px 60px}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;top:0;left:0;right:0;height:2px}
+.stat.g::before{background:var(--green)}.stat.b::before{background:var(--blue)}
+.stat.t::before{background:var(--teal)}.stat.a::before{background:var(--amber)}
+.stat.p::before{background:var(--purple)}
+.stat-lbl{font-size:10px;color:var(--fg-faint);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:700;font-family:var(--mono);font-variant-numeric:tabular-nums;line-height:1.1}
+.stat.g .stat-val{color:var(--green)}.stat.b .stat-val{color:var(--blue)}
+.stat.t .stat-val{color:var(--teal)}.stat.a .stat-val{color:var(--amber)}
+.stat.p .stat-val{color:var(--purple)}
+.stat-sub{font-size:10px;color:var(--fg-dim);margin-top:3px;line-height:1.3}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab{padding:9px 18px;font-size:12px;font-weight:500;color:var(--fg-dim);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--fg)}.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.chart-grid{display:grid;gap:16px;margin-bottom:16px}
+.chart-grid-2{grid-template-columns:1fr 1fr}.chart-grid-3{grid-template-columns:1fr 1fr 1fr}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0}
+.card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-dim);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.card-sub{font-size:11px;color:var(--fg-faint);margin-bottom:14px}
+.chart-wrap{position:relative}
+.gauge-container{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gauge-wrap{position:relative;width:160px;height:90px}
+.gauge-center-text{position:absolute;bottom:0;left:50%;transform:translateX(-50%);text-align:center}
+.gauge-val{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--green);line-height:1}
+.gauge-label{font-size:10px;color:var(--fg-dim)}
+.axis-bars{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.axis-bar-row{display:flex;flex-direction:column;gap:3px}
+.axis-bar-header{display:flex;justify-content:space-between;font-size:11px}
+.axis-bar-name{color:var(--fg-dim);font-family:var(--mono)}
+.flag-compare{display:flex;gap:12px;align-items:flex-end;margin-top:8px}
+.flag-bar-group{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.flag-bar-outer{width:100%;background:var(--surface3);border-radius:4px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.flag-bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height .6s ease}
+.flag-bar-label{font-size:10px;color:var(--fg-dim);font-family:var(--mono);text-align:center}
+.flag-bar-pct{font-size:18px;font-weight:700;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.flag-ratio-badge{background:color-mix(in srgb,var(--red) 15%,transparent);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);border-radius:6px;padding:6px 12px;text-align:center;margin-top:8px}
+.flag-ratio-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--red)}
+.flag-ratio-lbl{font-size:10px;color:var(--fg-dim)}
+.vote-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.vote-table th,.vote-table td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.vote-table th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-family:var(--mono)}
+.vote-table td{color:var(--fg-dim)}.vote-table td:first-child{color:var(--fg);font-weight:500;font-family:var(--mono)}
+.progress-cell{min-width:80px}.prog-wrap{background:var(--surface3);border-radius:3px;height:6px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.note{border-radius:6px;padding:10px 12px;font-size:12px;color:var(--fg-dim);line-height:1.6;margin-top:12px}
+.note.blue{background:color-mix(in srgb,var(--blue) 8%,transparent);border:1px solid color-mix(in srgb,var(--blue) 20%,transparent)}
+.note.amber{background:color-mix(in srgb,var(--amber) 8%,transparent);border:1px solid color-mix(in srgb,var(--amber) 20%,transparent)}
+.note.green{background:color-mix(in srgb,var(--green) 8%,transparent);border:1px solid color-mix(in srgb,var(--green) 20%,transparent)}
+.note.red{background:color-mix(in srgb,var(--red) 8%,transparent);border:1px solid color-mix(in srgb,var(--red) 20%,transparent)}
+.note strong{color:var(--fg)}
+.recipe-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:var(--mono);font-size:11px;color:var(--fg-dim);line-height:1.9;margin-bottom:20px}
+.recipe-box .hl{color:var(--teal);font-weight:600}.recipe-box .gr{color:var(--green)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg-dim)}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* ── Live Predict tab ── */
+.predict-grid{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+.predict-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.predict-panel h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-dim);margin-bottom:12px}
+.sample-btn-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.sample-btn{background:var(--surface2);border:1px solid var(--border);color:var(--fg-dim);border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:var(--mono);transition:border-color .15s,color .15s}
+.sample-btn:hover,.sample-btn.active{border-color:var(--blue);color:var(--blue)}
+.run-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .15s;margin-top:4px}
+.run-btn:hover{opacity:.85}.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.seg-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:5px;padding:6px 10px;font-size:12px;font-family:var(--mono);margin-bottom:10px}
+.seg-input:focus{outline:none;border-color:var(--blue)}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.result-class{font-size:28px;font-weight:700;font-family:var(--mono);text-transform:uppercase;margin-bottom:4px}
+.result-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.meta-item{font-size:11px;color:var(--fg-dim);font-family:var(--mono)}
+.meta-item strong{color:var(--fg)}
+.r1b-badge{display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;font-family:var(--mono)}
+.r1b-badge.flag{background:color-mix(in srgb,var(--red) 15%,transparent);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);color:var(--red)}
+.r1b-badge.ok{background:color-mix(in srgb,var(--green) 12%,transparent);border:1px solid color-mix(in srgb,var(--green) 30%,transparent);color:var(--green)}
+.prob-bars{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.prob-row{display:flex;align-items:center;gap:8px}
+.prob-cls{font-size:11px;font-family:var(--mono);width:56px;flex-shrink:0;text-align:right;color:var(--fg-dim)}
+.prob-track{flex:1;background:var(--surface3);border-radius:3px;height:18px;overflow:hidden;position:relative}
+.prob-fill{height:100%;border-radius:3px;transition:width .5s ease;display:flex;align-items:center;padding-left:6px}
+.prob-fill span{font-size:10px;font-family:var(--mono);font-weight:600;color:rgba(255,255,255,.9);white-space:nowrap}
+.prob-val{font-size:11px;font-family:var(--mono);width:44px;flex-shrink:0;color:var(--fg-dim);text-align:right;font-variant-numeric:tabular-nums}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.api-status-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:var(--mono)}
+
+@media(max-width:800px){.predict-grid{grid-template-columns:1fr}.chart-grid-2,.chart-grid-3{grid-template-columns:1fr}.stat-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:440px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="hdr-left">
+      <span class="model-badge">E8 · v1</span>
+      <div>
+        <div class="hdr-title">HMS EEG 판독 보조 시스템</div>
+        <div class="hdr-sub">0.85·mean(E4,E5) + 0.15·P1v2 · Private KL 0.3740</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <span class="live-dot" id="statusDot"></span>
+      <span class="live-label" id="statusLabel">연결 중…</span>
+      <button class="theme-btn" onclick="toggleTheme()">테마</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="stat-row">
+    <div class="stat b"><div class="stat-lbl">KL (고득표 CV)</div><div class="stat-val">0.296</div><div class="stat-sub">E8 앙상블 · 목표 달성</div></div>
+    <div class="stat g"><div class="stat-lbl">Seizure 민감도</div><div class="stat-val">94.5%</div><div class="stat-sub">@ 특이도 0.90</div></div>
+    <div class="stat t"><div class="stat-lbl">편측 AUC</div><div class="stat-val">0.936</div><div class="stat-sub">목표 0.93 달성</div></div>
+    <div class="stat t"><div class="stat-lbl">주기성 AUC</div><div class="stat-val">0.923</div><div class="stat-sub">목표 0.93 -0.007</div></div>
+    <div class="stat g"><div class="stat-lbl">R1b 일치율</div><div class="stat-val">80.1%</div><div class="stat-sub">목표 80% 달성</div></div>
+    <div class="stat a"><div class="stat-lbl">플래그 오답배율</div><div class="stat-val">2.72×</div><div class="stat-sub">목표 2× 초과</div></div>
+    <div class="stat p"><div class="stat-lbl">P1 피처 수</div><div class="stat-val">67</div><div class="stat-sub">qEEG 64 + QC 3</div></div>
+    <div class="stat b"><div class="stat-lbl">Private KL</div><div class="stat-val">0.374</div><div class="stat-sub">E1(0.532) 대비 −0.158</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab" onclick="switchTab('predict',this)">⚡ 실시간 예측</div>
+    <div class="tab active" onclick="switchTab('baserate',this)">기준율 (Base Rate)</div>
+    <div class="tab" onclick="switchTab('concordance',this)">일치도 (Concordance)</div>
+    <div class="tab" onclick="switchTab('calibration',this)">캘리브레이션</div>
+    <div class="tab" onclick="switchTab('experiment',this)">실험 추이</div>
+  </div>
+
+  <!-- ══ TAB 0: 실시간 예측 ══ -->
+  <div id="tab-predict" class="tab-panel">
+    <div class="api-status-row">
+      <span id="apiDot" class="live-dot"></span>
+      <span id="apiStatusText" style="color:var(--fg-dim)">API 상태 확인 중…</span>
+      <span style="margin-left:auto;color:var(--fg-faint)">P1-only (LightGBM 5-fold · E8 앙상블)</span>
+    </div>
+
+    <div class="predict-grid">
+      <!-- 왼쪽: 입력 패널 -->
+      <div class="predict-panel">
+        <h3>입력 설정</h3>
+
+        <div style="font-size:11px;color:var(--fg-faint);margin-bottom:6px">구간 ID</div>
+        <input class="seg-input" id="segId" value="demo-001" placeholder="segment id">
+
+        <div style="font-size:11px;color:var(--fg-faint);margin-bottom:6px;margin-top:10px">샘플 프리셋 (67차원 qEEG)</div>
+        <div class="sample-btn-row">
+          <button class="sample-btn active" onclick="selectSample('random',this)">랜덤</button>
+          <button class="sample-btn" onclick="selectSample('high_conf',this)">고확신 샘플</button>
+          <button class="sample-btn" onclick="selectSample('low_conf',this)">저확신 샘플</button>
+          <button class="sample-btn" onclick="selectSample('noisy',this)">잡음 샘플</button>
+        </div>
+
+        <div style="font-size:10px;color:var(--fg-faint);line-height:1.6;margin-bottom:10px">
+          67차원: 주파수대역 파워(δ/θ/α/β/γ) × 채널그룹 + 비대칭·율동성·주기성·시간변화 지표 + QC 3
+        </div>
+
+        <button class="run-btn" id="runBtn" onclick="runPredict()">예측 실행</button>
+      </div>
+
+      <!-- 오른쪽: 결과 패널 -->
+      <div>
+        <div id="resultEmpty" class="chart-card" style="text-align:center;padding:40px;color:var(--fg-faint);font-size:12px">
+          샘플을 선택하고 <strong style="color:var(--fg-dim)">예측 실행</strong>을 눌러주세요
+        </div>
+
+        <div id="resultCard" class="result-card" hidden>
+          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+            <div class="result-class" id="resultClass">—</div>
+            <div style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)" id="resultModel">—</div>
+          </div>
+          <div class="result-meta">
+            <div class="meta-item">확신도 <strong id="resultConf">—</strong></div>
+            <div class="meta-item">처리 <strong id="resultMs">—</strong></div>
+            <div class="meta-item">구간 <strong id="resultSeg">—</strong></div>
+          </div>
+
+          <div id="r1bBadge" class="r1b-badge"></div>
+          <div id="r1bReason" style="font-size:11px;color:var(--fg-dim);margin-top:6px;font-family:var(--mono)"></div>
+
+          <div class="prob-bars" id="probBars"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note blue" style="margin-top:16px">
+      <strong>참고:</strong> 현재 P1 단독 모드 (LightGBM 5-fold 앙상블). EC2 t3.small 메모리 제한으로 EfficientNet DL 모델은 미탑재.
+      실제 E8 앙상블은 DL 가중치 85% + P1 15%이며, 동일 인프라에서 GPU 인스턴스(g4dn.xlarge) 사용 시 전체 앙상블 활성화 가능.
+    </div>
+  </div>
+
+  <!-- ══ TAB 1: 기준율 ══ -->
+  <div id="tab-baserate" class="tab-panel active">
+    <div class="note blue" style="margin-bottom:16px"><strong>기준율이란?</strong> 각 클래스가 데이터에서 실제로 등장하는 비율입니다. 집계 단위(행·기록)에 따라 크게 달라지며, 모델이 학습한 분포와 실제 임상 분포의 차이를 파악하는 데 사용됩니다.</div>
+    <div class="chart-grid chart-grid-2">
+      <div class="chart-card">
+        <div class="card-title">📊 클래스 기준율 — 집계 단위별 비교</div>
+        <div class="card-sub">행 단위(50초 구간) vs 기록 단위(eeg_id) · 단위에 따라 LRDA·Other 분포가 역전</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="baserateChart"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>행 단위</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>기록 단위</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2ecdcb"></div>E8 예측 (고득표)</div>
+        </div>
+        <div class="note amber" style="margin-top:10px"><strong>핵심 발견:</strong> LRDA는 행 단위 20% → 기록 단위 5%로 급감. Other는 행 18% → 기록 51%로 역전. 모델 평가는 기록 단위로 설계 필요.</div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">🎯 기준율 vs 모델 예측 분포 (고득표 기준)</div>
+        <div class="card-sub">기록 단위 실제 비율과 E8 예측 분포의 일치도 확인</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="predDistChart"></canvas></div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>실제 기준율</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>E8 예측 분포</div>
+        </div>
+        <div class="note blue" style="margin-top:10px"><strong>해석:</strong> 예측 분포가 기록 단위 기준율과 잘 일치. Other 클래스 내부 이질성은 기준율만으로 설명 불가.</div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">📐 클래스별 기록당 평균 구간 수</div>
+      <div class="card-sub">구간 수가 많을수록 행 단위에서 과대 표현됨 (LRDA 16.0 vs Other 2.5)</div>
+      <div class="chart-wrap" style="height:120px"><canvas id="segPerRecordChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 2: 일치도 ══ -->
+  <div id="tab-concordance" class="tab-panel">
+    <div class="note blue" style="margin-bottom:16px"><strong>일치도란?</strong> R1 추론 로직에서 딥러닝 판정과 qEEG 프로파일 근거(편측성·율동성·시간변화)가 서로 지지하는 비율입니다. 불일치 시 "전문의 우선 확인" 플래그를 출력합니다.</div>
+    <div class="chart-grid chart-grid-3">
+      <div class="chart-card">
+        <div class="card-title">🔄 R1b 전체 일치율</div>
+        <div class="card-sub">고득표 샘플 기준 · 목표 80% 달성</div>
+        <div class="gauge-container" style="padding-top:8px">
+          <div class="gauge-wrap"><canvas id="concordGauge" width="160" height="90"></canvas><div class="gauge-center-text"><div class="gauge-val">80.1%</div><div class="gauge-label">일치율</div></div></div>
+          <div style="text-align:center;margin-top:4px"><div style="font-size:11px;color:var(--fg-dim)">미일치 19.9% → 플래그 출력</div></div>
+        </div>
+        <div class="note blue" style="margin-top:12px;font-size:11px">플래그 비율 <strong>24.8%</strong> (저확신 + 근거불일치)</div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">⚑ 플래그 오답률 비교</div>
+        <div class="card-sub">플래그 샘플 vs 비플래그 · 목표 2× 초과</div>
+        <div class="flag-compare">
+          <div class="flag-bar-group">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--fg-dim);text-align:center;margin-bottom:4px">비플래그</div>
+            <div class="flag-bar-outer" style="height:120px"><div class="flag-bar-fill" style="height:36.4%;background:color-mix(in srgb,var(--green) 60%,transparent)"></div></div>
+            <div class="flag-bar-pct" style="color:var(--green);text-align:center;font-size:16px">18.2%</div>
+            <div class="flag-bar-label">오답률</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:20px"><div style="font-size:18px;color:var(--fg-faint)">→</div></div>
+          <div class="flag-bar-group">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--fg-dim);text-align:center;margin-bottom:4px">플래그</div>
+            <div class="flag-bar-outer" style="height:120px"><div class="flag-bar-fill" style="height:99%;background:color-mix(in srgb,var(--red) 60%,transparent)"></div></div>
+            <div class="flag-bar-pct" style="color:var(--red);text-align:center;font-size:16px">49.5%</div>
+            <div class="flag-bar-label">오답률</div>
+          </div>
+        </div>
+        <div class="flag-ratio-badge"><div class="flag-ratio-val">2.72×</div><div class="flag-ratio-lbl">플래그 오답 배율 (목표 2× 달성)</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">📡 축별 근거 유무에 따른 오류율</div>
+        <div class="card-sub">근거 있을 때 vs 없을 때 판단 오류 비율</div>
+        <div class="axis-bars">
+          <div class="axis-bar-row">
+            <div class="axis-bar-header"><span class="axis-bar-name">편측 축 (LPD·LRDA)</span></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px"><span style="font-size:10px;color:var(--fg-dim);width:52px;flex-shrink:0;font-family:var(--mono)">근거 있음</span><div style="flex:1;background:var(--surface3);border-radius:3px;height:14px;overflow:hidden"><div style="width:5.1%;height:100%;background:var(--green);border-radius:3px"></div></div><span style="font-size:11px;font-family:var(--mono);color:var(--green);width:34px;text-align:right;font-variant-numeric:tabular-nums">5.1%</span></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px"><span style="font-size:10px;color:var(--fg-dim);width:52px;flex-shrink:0;font-family:var(--mono)">근거 없음</span><div style="flex:1;background:var(--surface3);border-radius:3px;height:14px;overflow:hidden"><div style="width:13.4%;height:100%;background:var(--red);border-radius:3px"></div></div><span style="font-size:11px;font-family:var(--mono);color:var(--red);width:34px;text-align:right;font-variant-numeric:tabular-nums">13.4%</span></div>
+            <div style="font-size:10px;color:var(--amber);margin-top:3px;font-family:var(--mono)">→ 2.63× 차이</div>
+          </div>
+          <div class="axis-bar-row" style="margin-top:10px">
+            <div class="axis-bar-header"><span class="axis-bar-name">율동 축 (LRDA·GRDA)</span></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px"><span style="font-size:10px;color:var(--fg-dim);width:52px;flex-shrink:0;font-family:var(--mono)">근거 있음</span><div style="flex:1;background:var(--surface3);border-radius:3px;height:14px;overflow:hidden"><div style="width:8.7%;height:100%;background:var(--green);border-radius:3px"></div></div><span style="font-size:11px;font-family:var(--mono);color:var(--green);width:34px;text-align:right;font-variant-numeric:tabular-nums">8.7%</span></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px"><span style="font-size:10px;color:var(--fg-dim);width:52px;flex-shrink:0;font-family:var(--mono)">근거 없음</span><div style="flex:1;background:var(--surface3);border-radius:3px;height:14px;overflow:hidden"><div style="width:17.8%;height:100%;background:var(--red);border-radius:3px"></div></div><span style="font-size:11px;font-family:var(--mono);color:var(--red);width:34px;text-align:right;font-variant-numeric:tabular-nums">17.8%</span></div>
+            <div style="font-size:10px;color:var(--amber);margin-top:3px;font-family:var(--mono)">→ 2.05× 차이</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">🗳 득표 수 구간별 일치율 & 성능</div>
+      <div class="card-sub">전문가 합의 수준에 따른 모델 신뢰도 변화 · 고득표(≥10표) 비율 37.4%</div>
+      <table class="vote-table">
+        <thead><tr><th>득표 구간</th><th>샘플 수</th><th>비율</th><th>R1 일치율</th><th>KL (CV)</th><th>시각화</th></tr></thead>
+        <tbody>
+          <tr><td>≥ 10표 (고득표)</td><td>6,391</td><td>37.4%</td><td style="color:var(--green);font-family:var(--mono)">80.1%</td><td style="font-family:var(--mono);color:var(--green)">0.296</td><td><div class="prog-wrap"><div class="prog-fill" style="width:80.1%;background:var(--green)"></div></div></td></tr>
+          <tr><td>5–9표 (중득표)</td><td>5,840</td><td>34.2%</td><td style="color:var(--amber);font-family:var(--mono)">72.3%</td><td style="font-family:var(--mono);color:var(--amber)">0.451</td><td><div class="prog-wrap"><div class="prog-fill" style="width:72.3%;background:var(--amber)"></div></div></td></tr>
+          <tr><td>1–4표 (저득표)</td><td>4,858</td><td>28.4%</td><td style="color:var(--fg-dim);font-family:var(--mono)">58.6%</td><td style="font-family:var(--mono);color:var(--fg-dim)">0.694</td><td><div class="prog-wrap"><div class="prog-fill" style="width:58.6%;background:var(--fg-faint)"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ TAB 3: 캘리브레이션 ══ -->
+  <div id="tab-calibration" class="tab-panel">
+    <div class="note blue" style="margin-bottom:16px"><strong>캘리브레이션이란?</strong> 모델이 "70% 확신"이라고 출력할 때 실제로 70%가 맞는지를 확인하는 지표입니다.</div>
+    <div class="chart-grid chart-grid-2">
+      <div class="chart-card">
+        <div class="card-title">📈 캘리브레이션 곡선</div>
+        <div class="card-sub">예측 확신도 vs 실제 정답률 · 대각선 = 완벽한 캘리브레이션</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="calibAllChart"></canvas></div>
+        <div class="legend" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>E8 (전체)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>E8 (고득표)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--fg-faint)"></div>완벽 보정선</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">🌡 클래스별 캘리브레이션 편차 (ECE)</div>
+        <div class="card-sub">낮을수록 잘 보정됨</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="eceChart"></canvas></div>
+        <div class="note amber" style="margin-top:10px"><strong>Other 클래스</strong>가 ECE 가장 높음 — 내부 이질성으로 인한 한계.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 4: 실험 추이 ══ -->
+  <div id="tab-experiment" class="tab-panel">
+    <div class="recipe-box"><span class="hl">E8 앙상블</span> = <span class="gr">0.85</span> × mean(<span class="gr">E4</span>, <span class="gr">E5</span>) + <span class="gr">0.15</span> × P1v2 · cv_kl_high=<span class="hl">0.2955</span> · Private KL=<span class="hl">0.3740</span></div>
+    <div class="chart-grid chart-grid-2">
+      <div class="chart-card">
+        <div class="card-title">📉 실험별 KL Divergence 추이</div>
+        <div class="card-sub">고득표 CV KL ↓ · E1→E8 개선 과정</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="klTrendChart"></canvas></div>
+        <div class="legend" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>고득표 CV KL</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f85149;opacity:.5"></div>Private KL</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">📊 가설 검증 결과 요약</div>
+        <div class="card-sub">H1–H6 판정</div>
+        <div class="chart-wrap" style="height:240px"><canvas id="hypothesisChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CLASSES = ['seizure','lpd','gpd','lrda','grda','other'];
+const CLASS_COLORS = {seizure:'#f85149',lpd:'#e3b341',gpd:'#bc8cff',lrda:'#58a6ff',grda:'#2ecdcb',other:'#3fb950'};
+
+/* ── Samples ── */
+const SAMPLES = {
+  random: () => Array.from({length:64},()=>Math.random()*2-1).concat([0,0,1.2]),
+  high_conf: () => [
+    2.1,1.8,0.3,-0.5,-0.8,1.9,1.7,0.4,-0.4,-0.7,
+    0.1,-0.2,-0.1,0.0,0.1,0.0,-0.1,0.0,0.1,-0.1,
+    1.5,1.3,0.2,-0.3,-0.6,1.6,1.4,0.3,-0.3,-0.5,
+    0.5,0.4,0.1,-0.1,-0.2,0.6,0.5,0.2,-0.2,-0.3,
+    -0.1,0.0,0.0,0.1,-0.1,0.0,0.1,0.0,-0.1,0.0,
+    0.8,0.7,0.2,-0.2,-0.4,0.9,0.8,0.3,-0.3,-0.5,
+    0.2,0.3,0.1, 0,0,1.0
+  ],
+  low_conf: () => Array.from({length:64},()=>Math.random()*0.4-0.2).concat([0.05,1,0.8]),
+  noisy: () => Array.from({length:64},()=>Math.random()*4-2).concat([0.3,5,3.5]),
+};
+let currentSample = 'random';
+
+function selectSample(name, btn) {
+  currentSample = name;
+  document.querySelectorAll('.sample-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* ── API health ── */
+async function checkHealth() {
+  const dot = document.getElementById('apiDot');
+  const txt = document.getElementById('apiStatusText');
+  const hDot = document.getElementById('statusDot');
+  const hLbl = document.getElementById('statusLabel');
+  try {
+    const r = await fetch('/health', {signal: AbortSignal.timeout(3000)});
+    const d = await r.json();
+    dot.className = 'live-dot';
+    txt.innerHTML = `<span style="color:var(--green)">● API 정상</span> &nbsp; P1: ${d.p1_loaded ? '✓' : '✗'} &nbsp; DL: ${d.dl_loaded ? '✓' : '✗'}`;
+    hDot.className = 'live-dot';
+    hLbl.textContent = 'LIVE';
+    hLbl.className = 'live-label';
+  } catch {
+    dot.className = 'live-dot err';
+    txt.innerHTML = '<span style="color:var(--red)">● API 연결 실패</span>';
+    hDot.className = 'live-dot err';
+    hLbl.textContent = 'OFFLINE';
+    hLbl.className = 'live-label err';
+  }
+}
+
+/* ── Predict ── */
+async function runPredict() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 추론 중…';
+
+  const features = SAMPLES[currentSample]();
+  const segId = document.getElementById('segId').value || 'demo-001';
+
+  try {
+    const resp = await fetch('/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({segment_id: segId, qeeg_features: features}),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const d = await resp.json();
+    showResult(d);
+  } catch(e) {
+    alert('예측 실패: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '예측 실행';
+  }
+}
+
+function showResult(d) {
+  document.getElementById('resultEmpty').hidden = true;
+  const card = document.getElementById('resultCard');
+  card.hidden = false;
+
+  const cls = d.predicted_class.toUpperCase();
+  const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
+  document.getElementById('resultClass').textContent = cls;
+  document.getElementById('resultClass').style.color = clr;
+  document.getElementById('resultModel').textContent = d.model_used;
+  document.getElementById('resultConf').textContent = (d.confidence * 100).toFixed(1) + '%';
+  document.getElementById('resultMs').textContent = d.processing_ms.toFixed(0) + ' ms';
+  document.getElementById('resultSeg').textContent = d.segment_id;
+
+  const badge = document.getElementById('r1bBadge');
+  const reason = document.getElementById('r1bReason');
+  if (d.r1b_flag) {
+    badge.className = 'r1b-badge flag';
+    badge.textContent = '⚑ 전문의 우선 확인 (R1b 플래그)';
+    reason.textContent = d.r1b_flag_reason;
+  } else {
+    badge.className = 'r1b-badge ok';
+    badge.textContent = '✓ 자동 판독 가능';
+    reason.textContent = '';
+  }
+
+  const prob = d.probabilities;
+  const sorted = CLASSES.slice().sort((a,b) => prob[b]-prob[a]);
+  const bars = document.getElementById('probBars');
+  bars.innerHTML = sorted.map(cls => {
+    const v = prob[cls];
+    const pct = (v*100).toFixed(1);
+    const w = Math.max(v*100, 0).toFixed(1);
+    const clr = CLASS_COLORS[cls];
+    return `<div class="prob-row">
+      <div class="prob-cls">${cls.toUpperCase()}</div>
+      <div class="prob-track">
+        <div class="prob-fill" style="width:${w}%;background:${clr}88">
+          ${v > 0.15 ? `<span>${pct}%</span>` : ''}
+        </div>
+      </div>
+      <div class="prob-val">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── Tabs ── */
+function switchTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  el.classList.add('active');
+  setTimeout(rebuildCharts, 50);
+}
+
+/* ── Theme ── */
+function getColors() {
+  const s = getComputedStyle(document.documentElement);
+  const g = k => s.getPropertyValue(k).trim();
+  return {fg:g('--fg'),dim:g('--fg-dim'),faint:g('--fg-faint'),border:g('--border'),
+    green:g('--green'),blue:g('--blue'),teal:g('--teal'),amber:g('--amber'),
+    red:g('--red'),purple:g('--purple'),surface3:g('--surface3')};
+}
+function toggleTheme() {
+  const r = document.documentElement;
+  const isDark = r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+  r.setAttribute('data-theme', isDark?'light':'dark');
+  setTimeout(rebuildCharts,50);
+}
+
+Chart.defaults.font.family = "'IBM Plex Mono',monospace";
+Chart.defaults.font.size = 11;
+const charts = {};
+function destroyAll(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});Object.keys(charts).forEach(k=>delete charts[k]);}
+
+function rebuildCharts() {
+  destroyAll();
+  const c = getColors();
+  const brCtx = document.getElementById('baserateChart');
+  if(brCtx) charts.baserate = new Chart(brCtx,{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'행 단위',data:[7,9,12,20,13,39],backgroundColor:c.blue+'88',borderColor:c.blue,borderWidth:1},{label:'기록 단위',data:[10,14,11,5,9,51],backgroundColor:c.green+'88',borderColor:c.green,borderWidth:1},{label:'E8 예측',data:[9,13,12,6,10,50],backgroundColor:c.teal+'88',borderColor:c.teal,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>v+'%'},max:60}}}});
+  const pdCtx = document.getElementById('predDistChart');
+  if(pdCtx) charts.pred = new Chart(pdCtx,{type:'radar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'실제',data:[10,14,11,5,9,51],fill:true,backgroundColor:c.green+'22',borderColor:c.green,pointBackgroundColor:c.green,pointRadius:3},{label:'E8',data:[9,13,12,6,10,50],fill:true,backgroundColor:c.purple+'22',borderColor:c.purple,pointBackgroundColor:c.purple,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{grid:{color:c.border},ticks:{color:c.dim,backdropColor:'transparent',stepSize:15},pointLabels:{color:c.fg,font:{size:11}}}}}});
+  const sprCtx = document.getElementById('segPerRecordChart');
+  if(sprCtx) charts.spr = new Chart(sprCtx,{type:'bar',data:{labels:['LRDA','GRDA','GPD','Seizure','LPD','Other'],datasets:[{data:[16,10,8.9,7,5.4,2.5],backgroundColor:[c.red+'99',c.amber+'99',c.amber+'66',c.blue+'66',c.blue+'99',c.green+'99'],borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim},max:18},y:{grid:{display:false},ticks:{color:c.fg,font:{size:12}}}}}});
+  const cgCtx = document.getElementById('concordGauge');
+  if(cgCtx) charts.gauge = new Chart(cgCtx,{type:'doughnut',data:{datasets:[{data:[80.1,19.9],backgroundColor:[c.green,c.border],borderWidth:0,circumference:180,rotation:270}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  const calibCtx = document.getElementById('calibAllChart');
+  if(calibCtx) charts.calib = new Chart(calibCtx,{type:'line',data:{labels:['0–0.1','0.1–0.2','0.2–0.3','0.3–0.4','0.4–0.5','0.5–0.6','0.6–0.7','0.7–0.8','0.8–0.9','0.9–1.0'],datasets:[{label:'E8 전체',data:[0.12,0.22,0.33,0.42,0.52,0.63,0.71,0.81,0.88,0.93],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:3},{label:'E8 고득표',data:[0.09,0.19,0.31,0.41,0.50,0.61,0.74,0.84,0.92,0.96],borderColor:c.green,fill:true,tension:.3,pointRadius:3},{label:'완벽',data:[0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95],borderColor:c.faint,borderDash:[4,4],fill:false,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim,maxRotation:40,font:{size:9}}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},min:0,max:1}}}});
+  const eceCtx = document.getElementById('eceChart');
+  if(eceCtx) charts.ece = new Chart(eceCtx,{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{data:[0.041,0.053,0.058,0.063,0.049,0.082],backgroundColor:[c.green+'99',c.blue+'99',c.blue+'88',c.teal+'88',c.teal+'99',c.red+'88'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},max:.12}}}});
+  const klCtx = document.getElementById('klTrendChart');
+  if(klCtx) charts.kl = new Chart(klCtx,{type:'line',data:{labels:['E1','E2','E3','E4','E5','P1v2','E8'],datasets:[{label:'고득표 CV KL',data:[0.501,0.385,0.371,0.323,0.335,0.487,0.2955],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:c.blue},{label:'Private KL',data:[0.5317,0.4637,null,0.3913,null,null,0.3740],borderColor:c.red+'88',borderDash:[4,4],fill:false,tension:.3,pointRadius:4,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim},min:0.2,max:0.6}}}});
+  const hypCtx = document.getElementById('hypothesisChart');
+  if(hypCtx) charts.hyp = new Chart(hypCtx,{type:'doughnut',data:{labels:['지지 (3)','기각 (1)','방향일치 (2)'],datasets:[{data:[3,1,2],backgroundColor:[c.green+'cc',c.red+'cc',c.amber+'cc'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:true,position:'right',labels:{color:c.fg,boxWidth:10,font:{size:11}}}}}});
+}
+
+rebuildCharts();
+checkHealth();
+setInterval(checkHealth, 30000);
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!document.documentElement.getAttribute('data-theme'))setTimeout(rebuildCharts,50);});
+</script>
+</body>
+</html>

@@ -3,6 +3,39 @@
 > 50초 EEG 구간을 **딥러닝 6개 클래스 확률 + 판독 관점 정량 지표(프로파일)** 로 함께 분석해
 > **'소견 + 판정 + 근거 + 신뢰도'** 형태의 판독 보조 리포트를 출력한다.
 
+## 라이브 데모 (AWS EC2 배포 완료)
+
+| 엔드포인트 | URL |
+|---|---|
+| 대시보드 | http://3.38.165.173:8000/ui |
+| API 문서 | http://3.38.165.173:8000/docs |
+| 헬스체크 | http://3.38.165.173:8000/health |
+
+> EC2 t3.small (ap-northeast-2) · Python 3.11 · LightGBM 5-fold · Docker
+
+## 7일 압축 일정 진행 현황
+
+| 일차 | 내용 | 상태 |
+|---|---|---|
+| D1 | 데이터 탐색, 기준율 분석, 전처리 파이프라인 | ✅ 완료 |
+| D2 | FastAPI 추론 레이어 (E8 앙상블 · R1b 플래그) | ✅ 완료 |
+| D3 | AWS ECR + EC2 배포 자동화 | ✅ 완료 |
+| D4 | 시각화 대시보드 (5탭) + 실시간 예측 UI 연동 | ✅ 완료 |
+| D5 | ADD 분석 + GitHub Actions CI | ✅ 완료 |
+| D6 | 통합 테스트 (3/3 PASS) | ✅ 완료 |
+| D7 | 피치 자료 정리 | 🔄 진행 중 |
+
+## 최종 성능 요약
+
+| 지표 | 결과 | 목표 |
+|---|---|---|
+| Private KL Divergence | **0.3740** | < 0.40 |
+| CV KL (고득표) | **0.2955** | < 0.35 |
+| Seizure 민감도 @spec0.90 | **94.5%** | > 90% |
+| 편측 AUC (LPD·LRDA) | **0.936** | > 0.93 |
+| R1b 일치율 (고득표) | **80.1%** | ≥ 80% |
+| 플래그 오답 배율 | **2.72×** | ≥ 2× |
+
 ## 문제 정의
 - 중환자실 EEG 판독은 전문의 의존도가 높고 판독 지연이 발생한다.
 - FDA 허가 발작 탐지 제품은 '진단 대체'가 아닌 '판독 보조'로 허가된다.
@@ -124,6 +157,40 @@ hms-eeg-profiling/
 [신뢰도] 중간 (최고 확률 0.83, 근거 불일치 : 편측·전반 판단 재확인)
 ```
 - 사례 8건 해설 : [reports/case_reports/commentary.md](reports/case_reports/commentary.md) (클래스별 정답 5, 저확신으로 걸러진 오답, 근거가 의심 축을 알려준 오답, 놓친 오답)
+
+## AWS 인프라 및 배포
+
+### 아키텍처
+```
+브라우저 → http://3.38.165.173:8000/ui (Same-Origin)
+         → FastAPI (EC2 t3.small · Docker)
+              POST /predict  GET /health  GET /ui (StaticFiles)
+              ModelServer: LightGBM 5-fold + E8 Blend + R1b Flag
+         → AWS ECR (641150854945.dkr.ecr.ap-northeast-2)
+```
+
+### 재배포 방법
+
+```powershell
+# 1. ECR push (코드 변경 후)
+.\scripts\deploy.ps1 -EcrOnly
+
+# 2. EC2 컨테이너 재시작 (SSM 자동화)
+.\scripts\redeploy_ec2.ps1
+```
+
+### IAM 설정
+
+| 대상 | 정책 |
+|---|---|
+| IAM 사용자 `hms-eeg-deploy` | EC2FullAccess, ECRFullAccess, SSMFullAccess |
+| EC2 역할 `hms-eeg-ec2-role` | ECRReadOnly, AmazonSSMManagedInstanceCore |
+
+### CI/CD (GitHub Actions)
+- **lint** → ruff
+- **unit-tests** → pytest
+- **api-schema** → FastAPI import 검증
+- **build-and-push** → main 브랜치 push 시 ECR 자동 업로드
 
 ## 한계
 - HMS는 연속 기록이 아닌 구간 단위 데이터 : 시간당 오경보율 산출 불가, 특이도로 대체

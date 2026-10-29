@@ -9,7 +9,7 @@ param(
     [switch]$EcrOnly   # ECR push만 (EC2 건너뜀)
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ── 유틸 ──────────────────────────────────────────────
 function Log($msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" -ForegroundColor Cyan }
@@ -27,7 +27,7 @@ $ImageUri = "$EcrUri/${RepoName}:latest"
 
 # ── 2. ECR 레포 생성 (이미 있으면 건너뜀) ──────────────
 Log "ECR 레포 확인/생성..."
-$existing = aws ecr describe-repositories --repository-names $RepoName --region $Region 2>&1
+$existing = aws ecr describe-repositories --repository-names $RepoName --region $Region 2>$null
 if ($LASTEXITCODE -ne 0) {
     aws ecr create-repository `
         --repository-name $RepoName `
@@ -109,14 +109,14 @@ docker run -d \
 
 $UserDataB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($UserData))
 
-# ── 6. 최신 Amazon Linux 2023 AMI ───────────────────
+# ── 6. 최신 Amazon Linux 2023 AMI (SSM 파라미터 스토어) ──
 Log "AMI 조회..."
-$AmiId = (aws ec2 describe-images `
-    --owners amazon `
-    --filters "Name=name,Values=al2023-ami-2023*-x86_64" `
-              "Name=state,Values=available" `
-    --query "sort_by(Images,&CreationDate)[-1].ImageId" `
-    --output text --region $Region)
+$AmiId = (aws ssm get-parameter `
+    --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64" `
+    --region $Region `
+    --query "Parameter.Value" `
+    --output text)
+if (-not $AmiId -or $AmiId -eq "None") { Err "AMI 조회 실패 — EC2FullAccess 권한 확인 필요" }
 Ok "AMI: $AmiId"
 
 # ── 7. EC2 인스턴스 시작 ─────────────────────────────

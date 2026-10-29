@@ -20,6 +20,7 @@ COPY src/ src/
 COPY api/ api/
 COPY configs/ configs/
 COPY e8_recipe.json .
+COPY static/ static/
 # models/ 는 ECR 이미지에 포함하거나 EFS 마운트 — 아래는 로컬 빌드용
 COPY models/ models/
 
