@@ -1,0 +1,9 @@
+# 로컬 테스트용 (Kaggle 노트북에는 기본 설치되어 있음)
+numpy
+pandas
+pyarrow
+scikit-learn
+scipy
+matplotlib
+pyyaml
+pytest
