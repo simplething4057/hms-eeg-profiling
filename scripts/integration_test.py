@@ -15,7 +15,7 @@ def _r(s): return f"\033[31m{s}\033[0m"
 def _b(s): return f"\033[1m{s}\033[0m"
 
 def chk(name, ok, detail=""):
-    print(f"  [{'PASS' if ok else _r('FAIL')}] {name}" + (f" — {detail}" if detail else ""))
+    print(f"  [{'PASS' if ok else _r('FAIL')}] {name}" + (f" : {detail}" if detail else ""))
     return ok
 
 

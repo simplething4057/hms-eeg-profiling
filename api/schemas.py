@@ -31,6 +31,8 @@ class ClassProb(BaseModel):
 
 
 class PredictResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     segment_id: str
     probabilities: ClassProb
     predicted_class: str
