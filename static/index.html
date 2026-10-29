@@ -16,20 +16,7 @@
   --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans KR',system-ui,sans-serif;
   color-scheme:dark;
 }
-@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){
-  --bg:#f3f6fa;--surface:#ffffff;--surface2:#f0f4f8;--surface3:#e8eef5;
-  --border:#d0dae4;--border2:#c0ccd8;--fg:#1c2b3a;--fg-dim:#4e6070;
-  --fg-faint:#9ab0c0;--green:#1a7f37;--green-d:#d8f3e0;--blue:#0969da;
-  --blue-d:#dce8ff;--amber:#9a6700;--amber-d:#fdf0cc;--red:#cf222e;
-  --red-d:#ffdcda;--teal:#0e7d7b;--purple:#7139c0;color-scheme:light;
-}}
-:root[data-theme="light"]{
-  --bg:#f3f6fa;--surface:#ffffff;--surface2:#f0f4f8;--surface3:#e8eef5;
-  --border:#d0dae4;--border2:#c0ccd8;--fg:#1c2b3a;--fg-dim:#4e6070;
-  --fg-faint:#9ab0c0;--green:#1a7f37;--green-d:#d8f3e0;--blue:#0969da;
-  --blue-d:#dce8ff;--amber:#9a6700;--amber-d:#fdf0cc;--red:#cf222e;
-  --red-d:#ffdcda;--teal:#0e7d7b;--purple:#7139c0;color-scheme:light;
-}
+/* dark-only — no light theme */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px;line-height:1.5;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px))}
 .header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);z-index:99;padding:0 max(20px,env(safe-area-inset-left,0px));margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px))) calc(-1*max(16px,env(safe-area-inset-right,0px)))}
@@ -46,8 +33,28 @@ body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px
 .live-label{font-size:11px;color:var(--green);font-family:var(--mono);font-weight:600}
 .live-label.warn{color:var(--amber)}
 .live-label.err{color:var(--red)}
-.theme-btn{background:var(--surface2);border:1px solid var(--border);color:var(--fg-dim);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer}
-.theme-btn:hover{color:var(--fg);border-color:var(--blue)}
+.about-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:24px}
+.about-section summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.07em;user-select:none;list-style:none;display:flex;align-items:center;gap:8px}
+.about-section summary::-webkit-details-marker{display:none}
+.about-section[open] summary{color:var(--blue);margin-bottom:16px}
+.about-chevron{font-size:10px;color:var(--fg-faint);transition:transform .2s}
+details[open] .about-chevron{transform:rotate(90deg)}
+.pipeline-flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-bottom:16px}
+.pipe-step{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-size:11px;font-family:var(--mono);min-width:0}
+.pipe-step-label{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-faint);margin-bottom:2px}
+.pipe-step-val{color:var(--fg);font-weight:600}
+.pipe-arrow{color:var(--fg-faint);padding:0 6px;font-size:14px;flex-shrink:0}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:12px}
+.feat-group{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.feat-group-name{font-size:10px;font-weight:600;color:var(--blue);font-family:var(--mono);margin-bottom:4px}
+.feat-group-desc{font-size:11px;color:var(--fg-dim);line-height:1.5}
+.feat-group-count{font-size:10px;font-family:var(--mono);color:var(--fg-faint);margin-top:2px}
+.exp-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.exp-table th,.exp-table td{padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.exp-table th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+.exp-table td{color:var(--fg-dim)}.exp-table td:first-child{color:var(--teal);font-family:var(--mono);font-weight:600}
+.exp-table tr.best td{color:var(--fg)}.exp-table tr.best td:first-child{color:var(--green)}
+.err-banner{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 30%,transparent);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--red);font-family:var(--mono);margin-top:12px;display:none}
 .page{max-width:1200px;margin:0 auto;padding-block:24px 60px}
 .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:24px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;position:relative;overflow:hidden}
@@ -155,12 +162,87 @@ body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px
     <div class="hdr-right">
       <span class="live-dot" id="statusDot"></span>
       <span class="live-label" id="statusLabel">연결 중…</span>
-      <button class="theme-btn" onclick="toggleTheme()">테마</button>
     </div>
   </div>
 </div>
 
 <div class="page">
+
+  <!-- ══ 시스템 소개 (접이식) ══ -->
+  <details class="about-section" id="aboutSection">
+    <summary>📖 시스템 소개 &amp; 데이터 입력 구조 <span class="about-chevron">▶</span></summary>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:10px">전체 파이프라인</div>
+      <div class="pipeline-flow">
+        <div class="pipe-step"><div class="pipe-step-label">입력</div><div class="pipe-step-val">50초 EEG<br><span style="color:var(--fg-dim);font-weight:400">19전극 · 200Hz</span></div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-step-label">D1 — 신호 QC</div><div class="pipe-step-val">결측·포화·잡음<br><span style="color:var(--fg-dim);font-weight:400">3개 QC 지표</span></div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-step-label">D2 — qEEG 프로파일</div><div class="pipe-step-val">주파수·편측·율동<br><span style="color:var(--fg-dim);font-weight:400">64개 특징 추출</span></div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-step-label">P1 모델</div><div class="pipe-step-val">LightGBM 5-fold<br><span style="color:var(--fg-dim);font-weight:400">67차원 입력</span></div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-step-label">E8 앙상블</div><div class="pipe-step-val">0.85×DL + 0.15×P1<br><span style="color:var(--fg-dim);font-weight:400">6클래스 확률</span></div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step" style="border-color:color-mix(in srgb,var(--amber) 40%,transparent)"><div class="pipe-step-label">R1b 플래그</div><div class="pipe-step-val" style="color:var(--amber)">전문의 확인<br><span style="color:var(--fg-dim);font-weight:400">p_max &lt; 0.47 또는<br>근거 불일치</span></div></div>
+      </div>
+      <div class="note amber"><strong>현재 데모 구성:</strong> EC2 t3.small 메모리 제한으로 P1 단독 모드 실행 중. DL(E4·E5 EfficientNet) 없이 LightGBM 5-fold만 사용. 실제 임상 배포 시 g4dn.xlarge + 전체 E8 앙상블 활성화 필요.</div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:10px">67차원 입력 피처 구조</div>
+      <div class="feat-grid">
+        <div class="feat-group">
+          <div class="feat-group-name">주파수 대역 파워</div>
+          <div class="feat-group-desc">δ(0.5–4Hz) · θ(4–8) · α(8–13) · β(13–30) · γ(30–50) × 5채널그룹(전체/좌/우/전두/후두)</div>
+          <div class="feat-group-count">25개 피처</div>
+        </div>
+        <div class="feat-group">
+          <div class="feat-group-name">비대칭 지수</div>
+          <div class="feat-group-desc">좌우 반구 파워 비율. 0.203 이상 → 편측성 근거. LPD·LRDA 판별에 핵심</div>
+          <div class="feat-group-count">10개 피처</div>
+        </div>
+        <div class="feat-group">
+          <div class="feat-group-name">율동성 지수</div>
+          <div class="feat-group-desc">LRDA·GRDA 판별. 특정 주파수 지속성 측정. 스펙트럼 엔트로피 역수 기반</div>
+          <div class="feat-group-count">10개 피처</div>
+        </div>
+        <div class="feat-group">
+          <div class="feat-group-name">주기성 지수</div>
+          <div class="feat-group-desc">LPD·GPD 판별. 자기상관 기반 반복 패턴 강도. H5 가설 부분 미지지</div>
+          <div class="feat-group-count">12개 피처</div>
+        </div>
+        <div class="feat-group">
+          <div class="feat-group-name">시간 변화</div>
+          <div class="feat-group-desc">50초 구간 내 파워 추이·안정성. 변화율 급격하면 R1 판단 신뢰도 감소</div>
+          <div class="feat-group-count">7개 피처</div>
+        </div>
+        <div class="feat-group">
+          <div class="feat-group-name">신호 QC</div>
+          <div class="feat-group-desc">artifact_ratio · saturation_ratio · electrode_quality. 0=정상, 1=불량. 플래그 판단에 직접 사용</div>
+          <div class="feat-group-count">3개 피처</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:10px">실험 단계 요약 (E1 → E8)</div>
+      <table class="exp-table">
+        <thead><tr><th>실험</th><th>핵심 변경</th><th>고득표 CV KL</th><th>Private KL</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td>E1</td><td>10분 스펙트로그램 + EfficientNet-B0 (기준선)</td><td style="font-family:var(--mono)">0.501</td><td style="font-family:var(--mono)">0.532</td><td style="color:var(--fg-dim)">기준점</td></tr>
+          <tr><td>E2</td><td>고득표(≥10표) 2단계 미세조정 추가</td><td style="font-family:var(--mono)">0.385</td><td style="font-family:var(--mono)">0.464</td><td style="color:var(--green)">H1 지지</td></tr>
+          <tr><td>E3</td><td>좌우 반전 증강 실험</td><td style="font-family:var(--mono)">0.371</td><td style="font-family:var(--mono)">—</td><td style="color:var(--red)">H3 기각</td></tr>
+          <tr><td>E4</td><td>50초 EEG 스펙트로그램 입력 결합</td><td style="font-family:var(--mono)">0.323</td><td style="font-family:var(--mono)">0.391</td><td style="color:var(--green)">H2 지지</td></tr>
+          <tr><td>P1v2</td><td>LightGBM qEEG 67피처 (5-fold)</td><td style="font-family:var(--mono)">0.487</td><td style="font-family:var(--mono)">—</td><td style="color:var(--fg-dim)">단독 약함</td></tr>
+          <tr class="best"><td>E8</td><td>0.85×mean(E4,E5) + 0.15×P1v2 블렌딩</td><td style="font-family:var(--mono);color:var(--green)">0.2955</td><td style="font-family:var(--mono);color:var(--green)">0.3740</td><td style="color:var(--green)">최종 제출</td></tr>
+        </tbody>
+      </table>
+      <div class="note blue" style="margin-top:10px"><strong>왜 P1을 섞는가?</strong> DL 단독은 Other 경계 샘플에서 과신 경향이 있음. P1의 qEEG 근거는 편측·율동 축에서 DL 오류를 보완 (해당 축 오류율 2.6× 차이). 15% 비중은 OOF 블렌딩 최적화 결과.</div>
+    </div>
+  </details>
+
   <div class="stat-row">
     <div class="stat b"><div class="stat-lbl">KL (고득표 CV)</div><div class="stat-val">0.296</div><div class="stat-sub">E8 앙상블 · 목표 달성</div></div>
     <div class="stat g"><div class="stat-lbl">Seizure 민감도</div><div class="stat-val">94.5%</div><div class="stat-sub">@ 특이도 0.90</div></div>
@@ -173,15 +255,15 @@ body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px
   </div>
 
   <div class="tabs">
-    <div class="tab" onclick="switchTab('predict',this)">⚡ 실시간 예측</div>
-    <div class="tab active" onclick="switchTab('baserate',this)">기준율 (Base Rate)</div>
+    <div class="tab active" onclick="switchTab('predict',this)">⚡ 실시간 예측</div>
+    <div class="tab" onclick="switchTab('baserate',this)">기준율 (Base Rate)</div>
     <div class="tab" onclick="switchTab('concordance',this)">일치도 (Concordance)</div>
     <div class="tab" onclick="switchTab('calibration',this)">캘리브레이션</div>
     <div class="tab" onclick="switchTab('experiment',this)">실험 추이</div>
   </div>
 
   <!-- ══ TAB 0: 실시간 예측 ══ -->
-  <div id="tab-predict" class="tab-panel">
+  <div id="tab-predict" class="tab-panel active">
     <div class="api-status-row">
       <span id="apiDot" class="live-dot"></span>
       <span id="apiStatusText" style="color:var(--fg-dim)">API 상태 확인 중…</span>
@@ -199,16 +281,16 @@ body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px
         <div style="font-size:11px;color:var(--fg-faint);margin-bottom:6px;margin-top:10px">샘플 프리셋 (67차원 qEEG)</div>
         <div class="sample-btn-row">
           <button class="sample-btn active" onclick="selectSample('random',this)">랜덤</button>
-          <button class="sample-btn" onclick="selectSample('high_conf',this)">고확신 샘플</button>
-          <button class="sample-btn" onclick="selectSample('low_conf',this)">저확신 샘플</button>
-          <button class="sample-btn" onclick="selectSample('noisy',this)">잡음 샘플</button>
+          <button class="sample-btn" onclick="selectSample('high_conf',this)">고확신</button>
+          <button class="sample-btn" onclick="selectSample('low_conf',this)">저확신</button>
+          <button class="sample-btn" onclick="selectSample('noisy',this)">잡음</button>
         </div>
-
-        <div style="font-size:10px;color:var(--fg-faint);line-height:1.6;margin-bottom:10px">
-          67차원: 주파수대역 파워(δ/θ/α/β/γ) × 채널그룹 + 비대칭·율동성·주기성·시간변화 지표 + QC 3
+        <div id="sampleDesc" style="font-size:10px;color:var(--fg-faint);line-height:1.7;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:7px 10px;font-family:var(--mono)">
+          <strong style="color:var(--fg-dim)">랜덤:</strong> 균일 분포 노이즈 입력. 모델이 어떤 클래스를 기본 선호하는지 확인
         </div>
 
         <button class="run-btn" id="runBtn" onclick="runPredict()">예측 실행</button>
+        <div class="err-banner" id="errBanner"></div>
       </div>
 
       <!-- 오른쪽: 결과 패널 -->
@@ -243,7 +325,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:13px
   </div>
 
   <!-- ══ TAB 1: 기준율 ══ -->
-  <div id="tab-baserate" class="tab-panel active">
+  <div id="tab-baserate" class="tab-panel">
     <div class="note blue" style="margin-bottom:16px"><strong>기준율이란?</strong> 각 클래스가 데이터에서 실제로 등장하는 비율입니다. 집계 단위(행·기록)에 따라 크게 달라지며, 모델이 학습한 분포와 실제 임상 분포의 차이를 파악하는 데 사용됩니다.</div>
     <div class="chart-grid chart-grid-2">
       <div class="chart-card">
@@ -407,10 +489,17 @@ const SAMPLES = {
 };
 let currentSample = 'random';
 
+const SAMPLE_DESCS = {
+  random: '<strong style="color:var(--fg-dim)">랜덤:</strong> 균일 분포 노이즈 입력. 모델이 어떤 클래스를 기본 선호하는지 확인',
+  high_conf: '<strong style="color:var(--fg-dim)">고확신:</strong> Seizure·LPD 패턴 강조 피처. 편측 주기성 방전 방향 신호. R1b 플래그 없을 것으로 예상',
+  low_conf: '<strong style="color:var(--fg-dim)">저확신:</strong> 파워가 매우 낮고 QC 포화 있음. p_max &lt; 0.47 가능성 높아 R1b 플래그 예상',
+  noisy: '<strong style="color:var(--fg-dim)">잡음:</strong> 과도 진폭 + 높은 artifact_ratio. 신호 불량 케이스. QC 지표가 플래그에 직접 반영',
+};
 function selectSample(name, btn) {
   currentSample = name;
   document.querySelectorAll('.sample-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('sampleDesc').innerHTML = SAMPLE_DESCS[name] || '';
 }
 
 /* ── API health ── */
@@ -454,9 +543,12 @@ async function runPredict() {
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const d = await resp.json();
+    document.getElementById('errBanner').style.display = 'none';
     showResult(d);
   } catch(e) {
-    alert('예측 실패: ' + e.message);
+    const eb = document.getElementById('errBanner');
+    eb.textContent = '예측 실패: ' + e.message;
+    eb.style.display = 'block';
   } finally {
     btn.disabled = false;
     btn.textContent = '예측 실행';
@@ -518,19 +610,13 @@ function switchTab(id, el) {
   setTimeout(rebuildCharts, 50);
 }
 
-/* ── Theme ── */
+/* ── Theme (dark-only) ── */
 function getColors() {
   const s = getComputedStyle(document.documentElement);
   const g = k => s.getPropertyValue(k).trim();
   return {fg:g('--fg'),dim:g('--fg-dim'),faint:g('--fg-faint'),border:g('--border'),
     green:g('--green'),blue:g('--blue'),teal:g('--teal'),amber:g('--amber'),
     red:g('--red'),purple:g('--purple'),surface3:g('--surface3')};
-}
-function toggleTheme() {
-  const r = document.documentElement;
-  const isDark = r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&window.matchMedia('(prefers-color-scheme:dark)').matches);
-  r.setAttribute('data-theme', isDark?'light':'dark');
-  setTimeout(rebuildCharts,50);
 }
 
 Chart.defaults.font.family = "'IBM Plex Mono',monospace";
@@ -562,7 +648,6 @@ function rebuildCharts() {
 rebuildCharts();
 checkHealth();
 setInterval(checkHealth, 30000);
-window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!document.documentElement.getAttribute('data-theme'))setTimeout(rebuildCharts,50);});
 </script>
 </body>
 </html>
