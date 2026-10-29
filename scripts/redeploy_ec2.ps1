@@ -25,25 +25,13 @@ $DeployScript = @'
 set -e
 ECR_URI="__ECR_URI__"
 IMAGE="__IMAGE_URI__"
-
-# 롤백용 이전 이미지 ID 저장
 PREV=$(docker inspect hms-eeg-api --format '{{.Image}}' 2>/dev/null || echo "")
 echo "Previous image: ${PREV:-none}"
-
-# ECR 로그인
-aws ecr get-login-password --region __REGION__ \
-  | docker login --username AWS --password-stdin "$ECR_URI"
-
-# 새 이미지 풀
+aws ecr get-login-password --region __REGION__ | docker login --username AWS --password-stdin "$ECR_URI"
 docker pull "$IMAGE"
-
-# 컨테이너 교체
 docker stop hms-eeg-api 2>/dev/null || true
-docker rm   hms-eeg-api 2>/dev/null || true
-docker run -d --name hms-eeg-api \
-  --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$IMAGE"
-
-# 헬스체크 (30s, 5s 간격 x 6회)
+docker rm hms-eeg-api 2>/dev/null || true
+docker run -d --name hms-eeg-api --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$IMAGE"
 echo "Waiting for service..."
 HEALTHY=0
 for i in 1 2 3 4 5 6; do
@@ -52,23 +40,17 @@ for i in 1 2 3 4 5 6; do
   echo "[${i}0s] Health: HTTP $HTTP"
   if [ "$HTTP" = "200" ]; then HEALTHY=1; break; fi
 done
-
 if [ "$HEALTHY" -eq 1 ]; then
   echo "=== Deploy OK ==="
   docker ps --filter name=hms-eeg-api --format 'Status: {{.Status}}'
 else
   echo "=== HEALTH CHECK FAILED ==="
-  echo "--- Container logs (last 30 lines) ---"
   docker logs hms-eeg-api --tail 30 2>&1 || true
-  echo "--------------------------------------"
   if [ -n "$PREV" ]; then
     echo "Rolling back to: $PREV"
     docker stop hms-eeg-api || true
-    docker rm   hms-eeg-api || true
-    docker run -d --name hms-eeg-api \
-      --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$PREV" \
-      && echo "Rollback complete" \
-      || echo "Rollback FAILED — 수동 조치 필요"
+    docker rm hms-eeg-api || true
+    docker run -d --name hms-eeg-api --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$PREV" && echo "Rollback complete" || echo "Rollback FAILED"
   else
     echo "No previous image to roll back to"
   fi
@@ -81,6 +63,9 @@ $DeployScript = $DeployScript `
     -replace '__ECR_URI__',   $EcrUri `
     -replace '__IMAGE_URI__', $ImageUri `
     -replace '__REGION__',    $Region
+
+# CRLF → LF (Windows here-string이 CRLF로 생성되어 EC2 bash 줄 계속이 깨지는 현상 방지)
+$DeployScript = $DeployScript -replace "`r`n", "`n"
 
 # Base64 인코딩 ($ · 특수문자 이스케이프 없이 SSM 에 전달)
 $Bytes = [System.Text.Encoding]::UTF8.GetBytes($DeployScript)
