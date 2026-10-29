@@ -2,7 +2,8 @@ param(
     [string]$Region      = "ap-northeast-2",
     [string]$InstanceId  = "i-05475380d8e492d67",
     [string]$AccountId   = "641150854945",
-    [string]$RepoName    = "hms-eeg-api"
+    [string]$RepoName    = "hms-eeg-api",
+    [string]$AwsExe      = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
 )
 
 $EcrUri   = "$AccountId.dkr.ecr.$Region.amazonaws.com"
@@ -26,8 +27,9 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($TmpJson, $paramsJson, $utf8NoBom)
 $TmpJsonFwd = $TmpJson -replace '\\', '/'
 
+$AwsCli = if (Get-Command aws -ErrorAction SilentlyContinue) { "aws" } else { $AwsExe }
 Log "Sending SSM send-command (params via file)..."
-$CmdId = aws ssm send-command `
+$CmdId = & $AwsCli ssm send-command `
     --instance-ids $InstanceId `
     --document-name "AWS-RunShellScript" `
     --parameters "file://$TmpJsonFwd" `
@@ -55,7 +57,7 @@ Log "Waiting for completion (max 90s)..."
 
 for ($i = 0; $i -lt 18; $i++) {
     Start-Sleep -Seconds 5
-    $Status = aws ssm get-command-invocation `
+    $Status = & $AwsCli ssm get-command-invocation `
         --command-id $CmdId `
         --instance-id $InstanceId `
         --region $Region `
@@ -63,7 +65,7 @@ for ($i = 0; $i -lt 18; $i++) {
         --output text 2>$null
     Write-Host "  [$([int]($i+1)*5)s] Status: $Status"
     if ($Status -eq "Success") {
-        $Out = aws ssm get-command-invocation `
+        $Out = & $AwsCli ssm get-command-invocation `
             --command-id $CmdId `
             --instance-id $InstanceId `
             --region $Region `
@@ -78,7 +80,7 @@ for ($i = 0; $i -lt 18; $i++) {
         exit 0
     }
     if ($Status -eq "Failed" -or $Status -eq "Cancelled") {
-        $ErrOut = aws ssm get-command-invocation `
+        $ErrOut = & $AwsCli ssm get-command-invocation `
             --command-id $CmdId `
             --instance-id $InstanceId `
             --region $Region `
