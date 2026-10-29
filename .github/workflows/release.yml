@@ -1,0 +1,197 @@
+name: Release to EC2
+
+# ── 수동 트리거 전용 ─────────────────────────────────────────────────────────
+# 실행 전: scripts/deploy.ps1 로 모델 포함 이미지를 ECR에 먼저 푸시해야 합니다.
+# GitHub Actions 탭 > Run workflow 버튼 클릭.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'ECR 이미지 태그 (기본: latest)'
+        required: false
+        default: 'latest'
+
+env:
+  AWS_REGION:     ap-northeast-2
+  ECR_REPOSITORY: hms-eeg-api
+  ACCOUNT_ID:     '641150854945'
+  INSTANCE_ID:    i-05475380d8e492d67
+  HEALTH_URL:     http://3.38.165.173:8000/health
+
+jobs:
+  release:
+    name: Release to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ env.AWS_REGION }}
+
+      # ── 1. ECR 이미지 존재 확인 ────────────────────────────────────────────
+      - name: Verify ECR image exists
+        env:
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          DIGEST=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --image-ids imageTag=$IMAGE_TAG \
+            --region $AWS_REGION \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>&1)
+
+          if [[ -z "$DIGEST" || "$DIGEST" == "None" || "$DIGEST" == *"Error"* ]]; then
+            echo "ERROR: ECR image '$IMAGE_TAG' not found."
+            echo "먼저 scripts/deploy.ps1 로 모델 포함 이미지를 ECR에 푸시하세요."
+            exit 1
+          fi
+
+          SIZE=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --image-ids imageTag=$IMAGE_TAG \
+            --region $AWS_REGION \
+            --query 'imageDetails[0].imageSizeInBytes' \
+            --output text)
+
+          echo "ECR image: $DIGEST"
+          echo "Size: $(echo "scale=1; $SIZE/1048576" | bc) MB"
+
+          # 50 MB 미만이면 모델 없는 가능성 높음 (의존성만으로 400 MB+ 예상)
+          if [[ "$SIZE" -lt 50000000 ]]; then
+            echo "WARNING: image seems too small (${SIZE} bytes). May be missing model weights or deps."
+            exit 1
+          fi
+
+          echo "Image check passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Tag: \`$IMAGE_TAG\` digest: \`${DIGEST:0:20}...\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Size: $(echo "scale=1; $SIZE/1048576" | bc) MB" >> $GITHUB_STEP_SUMMARY
+
+      # ── 2. EC2 SSM 재배포 (헬스체크 + 자동 롤백 포함) ────────────────────
+      - name: Deploy via SSM
+        env:
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          IMAGE="${ECR_URI}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          # EC2에서 실행할 bash 스크립트를 base64로 인코딩해 전달
+          # (SSM 명령 내 $ 이스케이프 문제 회피)
+          SCRIPT=$(cat <<'BASH'
+#!/bin/bash
+set -e
+ECR_URI="641150854945.dkr.ecr.ap-northeast-2.amazonaws.com"
+IMAGE="__IMAGE__"
+PREV=$(docker inspect hms-eeg-api --format '{{.Image}}' 2>/dev/null || echo "")
+echo "Previous image: ${PREV:-none}"
+
+aws ecr get-login-password --region ap-northeast-2 \
+  | docker login --username AWS --password-stdin "$ECR_URI"
+
+docker pull "$IMAGE"
+
+docker stop hms-eeg-api 2>/dev/null || true
+docker rm   hms-eeg-api 2>/dev/null || true
+docker run -d --name hms-eeg-api \
+  --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$IMAGE"
+
+echo "Waiting for service (max 30s)..."
+HEALTHY=0
+for i in 1 2 3 4 5 6; do
+  sleep 5
+  HTTP=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health 2>/dev/null || echo 000)
+  echo "[${i}0s] Health: HTTP $HTTP"
+  if [ "$HTTP" = "200" ]; then HEALTHY=1; break; fi
+done
+
+if [ "$HEALTHY" -eq 1 ]; then
+  echo "=== Deploy OK ==="
+  docker ps --filter name=hms-eeg-api --format 'Status: {{.Status}}'
+else
+  echo "=== HEALTH CHECK FAILED ==="
+  docker logs hms-eeg-api --tail 30 2>&1 || true
+  if [ -n "$PREV" ]; then
+    echo "Rolling back to: $PREV"
+    docker stop hms-eeg-api || true
+    docker rm   hms-eeg-api || true
+    docker run -d --name hms-eeg-api \
+      --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$PREV" \
+      && echo "Rollback complete" \
+      || echo "Rollback FAILED — manual intervention required"
+  else
+    echo "No previous image to roll back to"
+  fi
+  exit 1
+fi
+BASH
+          )
+          # 이미지 URL 삽입 (bash 변수 없이 치환)
+          SCRIPT="${SCRIPT/__IMAGE__/$IMAGE}"
+          B64=$(echo "$SCRIPT" | base64 -w0)
+
+          # SSM 파라미터 JSON 작성
+          cat > /tmp/ssm_params.json <<JSON
+          {
+            "commands": ["echo '$B64' | base64 -d | bash"]
+          }
+JSON
+
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters file:///tmp/ssm_params.json \
+            --region "$AWS_REGION" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command ID: $CMD_ID"
+
+          # 완료 대기 (최대 120s)
+          for i in $(seq 1 24); do
+            sleep 5
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region "$AWS_REGION" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "[${i}0s... wait] SSM: $STATUS"
+            if [[ "$STATUS" == "Success" ]]; then
+              OUT=$(aws ssm get-command-invocation \
+                --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+                --region "$AWS_REGION" \
+                --query "StandardOutputContent" --output text)
+              echo "$OUT"
+              break
+            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
+              ERR=$(aws ssm get-command-invocation \
+                --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+                --region "$AWS_REGION" \
+                --query "StandardErrorContent" --output text)
+              echo "SSM command failed:"
+              echo "$ERR"
+              exit 1
+            fi
+          done
+
+      # ── 3. 공개 엔드포인트 헬스체크 ────────────────────────────────────────
+      - name: Public health check
+        run: |
+          echo "Checking public endpoint: $HEALTH_URL"
+          for i in 1 2 3 4; do
+            sleep 5
+            HTTP=$(curl -s -o /dev/null -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || echo 000)
+            echo "[${i}0s] HTTP $HTTP"
+            if [[ "$HTTP" == "200" ]]; then
+              echo "Public health check passed!" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| 엔드포인트 | URL |" >> $GITHUB_STEP_SUMMARY
+              echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+              echo "| 대시보드 | http://3.38.165.173:8000/ui |" >> $GITHUB_STEP_SUMMARY
+              echo "| API 문서 | http://3.38.165.173:8000/docs |" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+          done
+          echo "Public health check failed"
+          exit 1

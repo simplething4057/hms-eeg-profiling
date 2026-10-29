@@ -56,44 +56,21 @@ jobs:
       - name: Import check
         run: python -c "from api.schemas import PredictRequest, PredictResponse; print('schemas OK')"
 
-  # ── 4. Docker 빌드 + ECR 푸시 (main 전용) ───────────────────────
-  build-and-push:
-    name: Build & Push to ECR
+  # ── 4. Docker 빌드 검증 (ECR 푸시 없음) ─────────────────────────
+  # ECR 릴리즈는 scripts/deploy.ps1 (로컬, models/ 포함) 또는
+  # .github/workflows/release.yml (workflow_dispatch 수동 트리거) 로만 합니다.
+  # CI에서 모델 없는 이미지를 :latest 로 덮어쓰면 EC2가 죽으므로 절대 금지.
+  build-validate:
+    name: Build Validate (no push)
     runs-on: ubuntu-latest
     needs: [lint, unit-tests, api-schema]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # 가중치는 CI 환경에 없으므로 --no-copy-models 플래그로 빌드
-      # 실제 배포는 models/ 를 ECR 이미지에 포함하거나 EFS 마운트
-      - name: Build image (without weights)
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Build image (without weights — validate only)
         run: |
-          # Dockerfile에서 COPY models/ 줄을 임시 제거한 후 빌드
+          # models/ 없이 빌드해 Dockerfile·의존성 설치가 정상인지 검증
+          # ECR에 절대 푸시하지 않음
           sed '/^COPY models\//d' Dockerfile > Dockerfile.ci
-          docker build -f Dockerfile.ci \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-
-      - name: Push to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
+          docker build -f Dockerfile.ci -t hms-eeg-api:ci-validate .
+          echo "Build validation OK (no push)" >> $GITHUB_STEP_SUMMARY
