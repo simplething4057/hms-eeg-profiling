@@ -1,4 +1,4 @@
-"""타깃 생성 (코드북 4-2)
+﻿"""타깃 생성 (코드북 4-2)
 
 - y_prob : 클래스별 득표 수 / 총 득표 수 (주 학습 타깃)
 - axis_lat / axis_pd : 4개 패턴 클래스 득표로 계산한 편측·주기성 확률
@@ -32,6 +32,26 @@ def build_targets(df, high_vote=10, seizure_pos=0.5):
     out["y_seizure_bin"] = (out["p_seizure"] >= seizure_pos).astype(int)
     return out
 
+
+def select_representative(df):
+    """eeg_id별 대표 구간 1개를 선택한다.
+
+    n_votes 최다 행을 선택하고, 동률이면 eeg_label_offset_seconds가 중앙값에 가장 가까운 행을 고른다.
+    n_segments (해당 eeg_id의 총 구간 수) 컬럼을 추가한다.
+    """
+    df = df.copy()
+    df["n_segments"] = df.groupby("eeg_id")["eeg_id"].transform("size")
+
+    def _pick(grp):
+        max_votes = grp["n_votes"].max()
+        candidates = grp[grp["n_votes"] == max_votes]
+        if len(candidates) == 1:
+            return candidates.iloc[0]
+        median_offset = grp["eeg_label_offset_seconds"].median()
+        dist = (candidates["eeg_label_offset_seconds"] - median_offset).abs()
+        return candidates.loc[dist.idxmin()]
+
+    return df.groupby("eeg_id", sort=False).apply(_pick).reset_index(drop=True)
 
 def aggregate_by_eeg(df):
     """평가용 eeg_id 단위 집계 : 같은 기록의 겹치는 구간이 평가에 중복 반영되지 않도록 투표를 합산한다."""
