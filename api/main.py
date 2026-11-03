@@ -169,6 +169,7 @@ async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
         "model_used": result["model_used"],
         "processing_ms": round(result["ms"], 1),
         "file_meta": file_meta,
+        "spectrogram_b64": spec_b64,
     }
 
 
