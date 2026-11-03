@@ -14,8 +14,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 # CPU 전용 PyTorch (CI 빌드 검증 시에는 INSTALL_DL=false 로 건너뜀)
 ARG INSTALL_DL=true
 RUN if [ "$INSTALL_DL" = "true" ]; then \
-    pip install --no-cache-dir torch==2.3.0 --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir timm==0.9.16; fi
+    pip install --no-cache-dir "torch==2.3.0+cpu" --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir "timm==0.9.16"; fi
 
 # 소스 코드 + 모델 가중치 복사
 COPY src/ src/
