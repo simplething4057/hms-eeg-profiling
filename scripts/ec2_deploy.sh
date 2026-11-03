@@ -23,10 +23,10 @@ docker rm   hms-eeg-api 2>/dev/null || true
 docker run -d --name hms-eeg-api \
   --restart always -p 8000:8000 -e PYTHONUNBUFFERED=1 "$IMAGE"
 
-# 헬스체크 (30s, 5s 간격 x 6회)
+# 헬스체크 (90s, 5s 간격 x 18회 — DL 모델 10개 로드 시간 확보)
 echo "Waiting for service..."
 HEALTHY=0
-for i in 1 2 3 4 5 6; do
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18; do
   sleep 5
   HTTP=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health 2>/dev/null || echo 000)
   echo "[${i}0s] Health: HTTP $HTTP"
