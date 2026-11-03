@@ -11,14 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements-api.txt .
 RUN pip install --no-cache-dir -r requirements-api.txt
 
-# CPU 전용 PyTorch (CI 빌드 검증 시에는 INSTALL_DL=false 로 건너뜀)
+# CPU 전용 PyTorch + torchvision (CI 빌드 검증 시에는 INSTALL_DL=false 로 건너뜀)
+# torchvision 을 먼저 whl 에서 설치해야 timm 의존성 해소 시 CUDA 버전으로 업그레이드되지 않음
 ARG INSTALL_DL=true
 RUN if [ "$INSTALL_DL" = "true" ]; then \
     pip install --no-cache-dir \
         --index-url https://download.pytorch.org/whl/cpu \
-        "torch==2.3.0+cpu" && \
-    pip install --no-cache-dir --no-deps "timm==0.9.16" && \
-    pip install --no-cache-dir "huggingface-hub>=0.13.0" "safetensors"; fi
+        "torch==2.3.0+cpu" \
+        "torchvision==0.18.0+cpu" && \
+    pip install --no-cache-dir "timm==0.9.16"; fi
 
 # 소스 코드 + 모델 가중치 복사
 COPY src/ src/

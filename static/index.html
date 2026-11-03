@@ -146,6 +146,10 @@ details[open] .about-chevron{transform:rotate(90deg)}
 
 @media(max-width:800px){.predict-grid{grid-template-columns:1fr}.chart-grid-2,.chart-grid-3{grid-template-columns:1fr}.stat-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:440px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+.analysis-section{margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+.analysis-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.analysis-section-hdr{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.analysis-section-hdr::before{content:"";width:3px;height:14px;background:var(--blue);border-radius:2px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -187,7 +191,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
         <div class="pipe-arrow">→</div>
         <div class="pipe-step" style="border-color:color-mix(in srgb,var(--amber) 40%,transparent)"><div class="pipe-step-label">R1b 플래그</div><div class="pipe-step-val" style="color:var(--amber)">전문의 확인<br><span style="color:var(--fg-dim);font-weight:400">p_max &lt; 0.47 또는<br>근거 불일치</span></div></div>
       </div>
-      <div class="note amber"><strong>현재 데모 구성:</strong> EC2 t3.small 메모리 제한으로 P1 단독 모드 실행 중. DL(E4·E5 EfficientNet) 없이 LightGBM 5-fold만 사용. 실제 임상 배포 시 g4dn.xlarge + 전체 E8 앙상블 활성화 필요.</div>
+      <div class="note blue"><strong>현재 데모 구성:</strong> EC2 t3.small에서 E8 전체 앙상블 실행 중. EfficientNet-B0 E4·E5 (CPU, 모델 10개) + LightGBM P1v2 5-fold — 0.85×DL + 0.15×P1 가중 결합.</div>
     </div>
 
     <div style="margin-bottom:20px">
@@ -256,10 +260,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab('predict',this)">⚡ 실시간 예측</div>
-    <div class="tab" onclick="switchTab('baserate',this)">기준율 (Base Rate)</div>
-    <div class="tab" onclick="switchTab('concordance',this)">일치도 (Concordance)</div>
-    <div class="tab" onclick="switchTab('calibration',this)">캘리브레이션</div>
-    <div class="tab" onclick="switchTab('experiment',this)">실험 추이</div>
+    <div class="tab" onclick="switchTab('analysis',this)">모델 분석</div>
   </div>
 
   <!-- ══ TAB 0: 실시간 예측 ══ -->
@@ -267,7 +268,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
     <div class="api-status-row">
       <span id="apiDot" class="live-dot"></span>
       <span id="apiStatusText" style="color:var(--fg-dim)">API 상태 확인 중…</span>
-      <span style="margin-left:auto;color:var(--fg-faint)">P1-only (LightGBM 5-fold · E8 앙상블)</span>
+      <span style="margin-left:auto;color:var(--fg-faint)">E8 앙상블 (DL 85% + P1 15%)</span>
     </div>
 
     <div class="predict-grid">
@@ -319,64 +320,109 @@ details[open] .about-chevron{transform:rotate(90deg)}
     </div>
 
     <div class="note blue" style="margin-top:16px">
-      <strong>참고:</strong> 현재 P1 단독 모드 (LightGBM 5-fold 앙상블). EC2 t3.small 메모리 제한으로 EfficientNet DL 모델은 미탑재.
-      실제 E8 앙상블은 DL 가중치 85% + P1 15%이며, 동일 인프라에서 GPU 인스턴스(g4dn.xlarge) 사용 시 전체 앙상블 활성화 가능.
+      <strong>참고:</strong> E8 전체 앙상블 활성화 상태. EfficientNet-B0 E4·E5 각 5-fold (CPU 추론) + LightGBM P1v2 5-fold를
+      0.85×DL + 0.15×P1 가중치로 결합하여 예측합니다.
+    </div>
+
+    <!-- ══ 파일 업로드 추론 ══ -->
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:12px">📂 EEG 파일 업로드 추론</div>
+      <div style="font-size:11px;color:var(--fg-dim);margin-bottom:10px">
+        HMS 대회 형식의 <code style="font-family:var(--mono);background:var(--surface2);padding:1px 4px;border-radius:3px">.parquet</code> EEG 파일을 업로드하면
+        전처리 파이프라인(몽타주 → QC → 필터 → qEEG 피처 + 스펙트로그램)을 서버에서 실행하고 E8 앙상블로 예측합니다.
+      </div>
+
+      <div id="dropZone" style="border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s"
+           onclick="document.getElementById('eegFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='color-mix(in srgb,var(--accent) 6%,transparent)'"
+           ondragleave="this.style.borderColor='var(--border)';this.style.background=''"
+           ondrop="handleFileDrop(event)">
+        <div style="font-size:28px;margin-bottom:6px">📁</div>
+        <div style="font-size:12px;color:var(--fg-dim)">파일을 여기에 드래그하거나 클릭하여 선택</div>
+        <div style="font-size:10px;color:var(--fg-faint);margin-top:4px">.parquet · 최대 50 MB</div>
+      </div>
+      <input type="file" id="eegFileInput" accept=".parquet" style="display:none" onchange="handleFileSelect(event)">
+
+      <div id="uploadResult" hidden style="margin-top:14px">
+        <div class="result-card" id="uploadResultCard">
+          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+            <div class="result-class" id="uploadClass">—</div>
+            <div style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)" id="uploadModel">—</div>
+          </div>
+          <div class="result-meta">
+            <div class="meta-item">확신도 <strong id="uploadConf">—</strong></div>
+            <div class="meta-item">처리 <strong id="uploadMs">—</strong></div>
+            <div class="meta-item">파일 <strong id="uploadFile">—</strong></div>
+          </div>
+          <div id="uploadR1b" class="r1b-badge" style="margin-top:8px"></div>
+          <div id="uploadR1bReason" style="font-size:11px;color:var(--fg-dim);margin-top:4px;font-family:var(--mono)"></div>
+          <div class="prob-bars" id="uploadProbBars" style="margin-top:14px"></div>
+          <div id="uploadMeta" style="font-size:10px;color:var(--fg-faint);margin-top:12px;font-family:var(--mono);line-height:1.8"></div>
+        </div>
+      </div>
+      <div id="uploadErr" class="err-banner" style="margin-top:8px"></div>
+      <div id="uploadSpinner" hidden style="text-align:center;padding:16px;color:var(--fg-dim);font-size:12px">⏳ 서버에서 전처리 및 추론 중…</div>
     </div>
   </div>
 
-  <!-- ══ TAB 1: 기준율 ══ -->
-  <div id="tab-baserate" class="tab-panel">
-    <div class="note blue" style="margin-bottom:16px"><strong>기준율이란?</strong> 각 클래스가 데이터에서 실제로 등장하는 비율입니다. 집계 단위(행·기록)에 따라 크게 달라지며, 모델이 학습한 분포와 실제 임상 분포의 차이를 파악하는 데 사용됩니다.</div>
-    <div class="chart-grid chart-grid-2">
-      <div class="chart-card">
-        <div class="card-title">📊 클래스 기준율 — 집계 단위별 비교</div>
-        <div class="card-sub">행 단위(50초 구간) vs 기록 단위(eeg_id) · 단위에 따라 LRDA·Other 분포가 역전</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="baserateChart"></canvas></div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>행 단위</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>기록 단위</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#2ecdcb"></div>E8 예측 (고득표)</div>
-        </div>
-        <div class="note amber" style="margin-top:10px"><strong>핵심 발견:</strong> LRDA는 행 단위 20% → 기록 단위 5%로 급감. Other는 행 18% → 기록 51%로 역전. 모델 평가는 기록 단위로 설계 필요.</div>
-      </div>
-      <div class="chart-card">
-        <div class="card-title">🎯 기준율 vs 모델 예측 분포 (고득표 기준)</div>
-        <div class="card-sub">기록 단위 실제 비율과 E8 예측 분포의 일치도 확인</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="predDistChart"></canvas></div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>실제 기준율</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>E8 예측 분포</div>
-        </div>
-        <div class="note blue" style="margin-top:10px"><strong>해석:</strong> 예측 분포가 기록 단위 기준율과 잘 일치. Other 클래스 내부 이질성은 기준율만으로 설명 불가.</div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="card-title">📐 클래스별 기록당 평균 구간 수</div>
-      <div class="card-sub">구간 수가 많을수록 행 단위에서 과대 표현됨 (LRDA 16.0 vs Other 2.5)</div>
-      <div class="chart-wrap" style="height:120px"><canvas id="segPerRecordChart"></canvas></div>
-    </div>
-  </div>
+  <!-- ══ TAB 1: 모델 분석 ══ -->
+  <div id="tab-analysis" class="tab-panel">
 
-  <!-- ══ TAB 2: 일치도 ══ -->
-  <div id="tab-concordance" class="tab-panel">
-    <div class="note blue" style="margin-bottom:16px"><strong>일치도란?</strong> R1 추론 로직에서 딥러닝 판정과 qEEG 프로파일 근거(편측성·율동성·시간변화)가 서로 지지하는 비율입니다. 불일치 시 "전문의 우선 확인" 플래그를 출력합니다.</div>
-    <div class="chart-grid chart-grid-3">
-      <div class="chart-card">
-        <div class="card-title">🔄 R1b 전체 일치율</div>
-        <div class="card-sub">고득표 샘플 기준 · 목표 80% 달성</div>
-        <div class="gauge-container" style="padding-top:8px">
-          <div class="gauge-wrap"><canvas id="concordGauge" width="160" height="90"></canvas><div class="gauge-center-text"><div class="gauge-val">80.1%</div><div class="gauge-label">일치율</div></div></div>
-          <div style="text-align:center;margin-top:4px"><div style="font-size:11px;color:var(--fg-dim)">미일치 19.9% → 플래그 출력</div></div>
+    <!-- 기준율 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">기준율 (Base Rate)</div>
+      <div class="note blue" style="margin-bottom:16px"><strong>기준율이란?</strong> 각 클래스가 데이터에서 실제로 등장하는 비율입니다. 집계 단위(행·기록)에 따라 크게 달라지며, 모델이 학습한 분포와 실제 임상 분포의 차이를 파악하는 데 사용됩니다.</div>
+      <div class="chart-grid chart-grid-2">
+        <div class="chart-card">
+          <div class="card-title">클래스 기준율 — 집계 단위별 비교</div>
+          <div class="card-sub">행 단위(50초 구간) vs 기록 단위(eeg_id) · 단위에 따라 LRDA·Other 분포가 역전</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="baserateChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>행 단위</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>기록 단위</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#2ecdcb"></div>E8 예측 (고득표)</div>
+          </div>
+          <div class="note amber" style="margin-top:10px"><strong>핵심 발견:</strong> LRDA는 행 단위 20% → 기록 단위 5%로 급감. Other는 행 18% → 기록 51%로 역전. 모델 평가는 기록 단위로 설계 필요.</div>
         </div>
-        <div class="note blue" style="margin-top:12px;font-size:11px">플래그 비율 <strong>24.8%</strong> (저확신 + 근거불일치)</div>
+        <div class="chart-card">
+          <div class="card-title">기준율 vs 모델 예측 분포 (고득표 기준)</div>
+          <div class="card-sub">기록 단위 실제 비율과 E8 예측 분포의 일치도 확인</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="predDistChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>실제 기준율</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>E8 예측 분포</div>
+          </div>
+          <div class="note blue" style="margin-top:10px"><strong>해석:</strong> 예측 분포가 기록 단위 기준율과 잘 일치. Other 클래스 내부 이질성은 기준율만으로 설명 불가.</div>
+        </div>
       </div>
-      <div class="chart-card">
-        <div class="card-title">⚑ 플래그 오답률 비교</div>
-        <div class="card-sub">플래그 샘플 vs 비플래그 · 목표 2× 초과</div>
-        <div class="flag-compare">
-          <div class="flag-bar-group">
-            <div style="font-family:var(--mono);font-size:10px;color:var(--fg-dim);text-align:center;margin-bottom:4px">비플래그</div>
-            <div class="flag-bar-outer" style="height:120px"><div class="flag-bar-fill" style="height:36.4%;background:color-mix(in srgb,var(--green) 60%,transparent)"></div></div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="card-title">클래스별 기록당 평균 구간 수</div>
+        <div class="card-sub">구간 수가 많을수록 행 단위에서 과대 표현됨 (LRDA 16.0 vs Other 2.5)</div>
+        <div class="chart-wrap" style="height:120px"><canvas id="segPerRecordChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 일치도 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">일치도 (Concordance)</div>
+      <div class="note blue" style="margin-bottom:16px"><strong>일치도란?</strong> R1 추론 로직에서 딥러닝 판정과 qEEG 프로파일 근거(편측성·율동성·시간변화)가 서로 지지하는 비율입니다. 불일치 시 "전문의 우선 확인" 플래그를 출력합니다.</div>
+      <div class="chart-grid chart-grid-3">
+        <div class="chart-card">
+          <div class="card-title">R1b 전체 일치율</div>
+          <div class="card-sub">고득표 샘플 기준 · 목표 80% 달성</div>
+          <div class="gauge-container" style="padding-top:8px">
+            <div class="gauge-wrap"><canvas id="concordGauge" width="160" height="90"></canvas><div class="gauge-center-text"><div class="gauge-val">80.1%</div><div class="gauge-label">일치율</div></div></div>
+            <div style="text-align:center;margin-top:4px"><div style="font-size:11px;color:var(--fg-dim)">미일치 19.9% → 플래그 출력</div></div>
+          </div>
+          <div class="note blue" style="margin-top:12px;font-size:11px">플래그 비율 <strong>24.8%</strong> (저확신 + 근거불일치)</div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">플래그 오답률 비교</div>
+          <div class="card-sub">플래그 샘플 vs 비플래그 · 목표 2× 초과</div>
+          <div class="flag-compare">
+            <div class="flag-bar-group">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--fg-dim);text-align:center;margin-bottom:4px">비플래그</div>
+              <div class="flag-bar-outer" style="height:120px"><div class="flag-bar-fill" style="height:36.4%;background:color-mix(in srgb,var(--green) 60%,transparent)"></div></div>
             <div class="flag-bar-pct" style="color:var(--green);text-align:center;font-size:16px">18.2%</div>
             <div class="flag-bar-label">오답률</div>
           </div>
@@ -391,7 +437,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
         <div class="flag-ratio-badge"><div class="flag-ratio-val">2.72×</div><div class="flag-ratio-lbl">플래그 오답 배율 (목표 2× 달성)</div></div>
       </div>
       <div class="chart-card">
-        <div class="card-title">📡 축별 근거 유무에 따른 오류율</div>
+        <div class="card-title">축별 근거 유무에 따른 오류율</div>
         <div class="card-sub">근거 있을 때 vs 없을 때 판단 오류 비율</div>
         <div class="axis-bars">
           <div class="axis-bar-row">
@@ -409,8 +455,8 @@ details[open] .about-chevron{transform:rotate(90deg)}
         </div>
       </div>
     </div>
-    <div class="chart-card">
-      <div class="card-title">🗳 득표 수 구간별 일치율 & 성능</div>
+    <div class="chart-card" style="margin-top:16px">
+      <div class="card-title">득표 수 구간별 일치율 &amp; 성능</div>
       <div class="card-sub">전문가 합의 수준에 따른 모델 신뢰도 변화 · 고득표(≥10표) 비율 37.4%</div>
       <table class="vote-table">
         <thead><tr><th>득표 구간</th><th>샘플 수</th><th>비율</th><th>R1 일치율</th><th>KL (CV)</th><th>시각화</th></tr></thead>
@@ -421,50 +467,54 @@ details[open] .about-chevron{transform:rotate(90deg)}
         </tbody>
       </table>
     </div>
-  </div>
+    </div>
 
-  <!-- ══ TAB 3: 캘리브레이션 ══ -->
-  <div id="tab-calibration" class="tab-panel">
-    <div class="note blue" style="margin-bottom:16px"><strong>캘리브레이션이란?</strong> 모델이 "70% 확신"이라고 출력할 때 실제로 70%가 맞는지를 확인하는 지표입니다.</div>
-    <div class="chart-grid chart-grid-2">
-      <div class="chart-card">
-        <div class="card-title">📈 캘리브레이션 곡선</div>
-        <div class="card-sub">예측 확신도 vs 실제 정답률 · 대각선 = 완벽한 캘리브레이션</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="calibAllChart"></canvas></div>
-        <div class="legend" style="margin-top:8px">
-          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>E8 (전체)</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>E8 (고득표)</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--fg-faint)"></div>완벽 보정선</div>
+    <!-- 캘리브레이션 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">캘리브레이션</div>
+      <div class="note blue" style="margin-bottom:16px"><strong>캘리브레이션이란?</strong> 모델이 "70% 확신"이라고 출력할 때 실제로 70%가 맞는지를 확인하는 지표입니다.</div>
+      <div class="chart-grid chart-grid-2">
+        <div class="chart-card">
+          <div class="card-title">캘리브레이션 곡선</div>
+          <div class="card-sub">예측 확신도 vs 실제 정답률 · 대각선 = 완벽한 캘리브레이션</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="calibAllChart"></canvas></div>
+          <div class="legend" style="margin-top:8px">
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>E8 평균 (6클래스)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>GPD (ECE=0.005)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--fg-faint)"></div>완벽 보정선</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">클래스별 캘리브레이션 편차 (ECE)</div>
+          <div class="card-sub">낮을수록 잘 보정됨</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="eceChart"></canvas></div>
+          <div class="note amber" style="margin-top:10px"><strong>Other 클래스</strong>가 ECE 가장 높음 — 내부 이질성으로 인한 한계.</div>
         </div>
       </div>
-      <div class="chart-card">
-        <div class="card-title">🌡 클래스별 캘리브레이션 편차 (ECE)</div>
-        <div class="card-sub">낮을수록 잘 보정됨</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="eceChart"></canvas></div>
-        <div class="note amber" style="margin-top:10px"><strong>Other 클래스</strong>가 ECE 가장 높음 — 내부 이질성으로 인한 한계.</div>
-      </div>
     </div>
-  </div>
 
-  <!-- ══ TAB 4: 실험 추이 ══ -->
-  <div id="tab-experiment" class="tab-panel">
-    <div class="recipe-box"><span class="hl">E8 앙상블</span> = <span class="gr">0.85</span> × mean(<span class="gr">E4</span>, <span class="gr">E5</span>) + <span class="gr">0.15</span> × P1v2 · cv_kl_high=<span class="hl">0.2955</span> · Private KL=<span class="hl">0.3740</span></div>
-    <div class="chart-grid chart-grid-2">
-      <div class="chart-card">
-        <div class="card-title">📉 실험별 KL Divergence 추이</div>
-        <div class="card-sub">고득표 CV KL ↓ · E1→E8 개선 과정</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="klTrendChart"></canvas></div>
-        <div class="legend" style="margin-top:8px">
-          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>고득표 CV KL</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#f85149;opacity:.5"></div>Private KL</div>
+    <!-- 실험 추이 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">실험 추이</div>
+      <div class="recipe-box"><span class="hl">E8 앙상블</span> = <span class="gr">0.85</span> × mean(<span class="gr">E4</span>, <span class="gr">E5</span>) + <span class="gr">0.15</span> × P1v2 · cv_kl_high=<span class="hl">0.2955</span> · Private KL=<span class="hl">0.3740</span></div>
+      <div class="chart-grid chart-grid-2">
+        <div class="chart-card">
+          <div class="card-title">실험별 KL Divergence 추이</div>
+          <div class="card-sub">고득표 CV KL ↓ · E1→E8 개선 과정</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="klTrendChart"></canvas></div>
+          <div class="legend" style="margin-top:8px">
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>고득표 CV KL</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;opacity:.5"></div>Private KL</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">가설 검증 결과 요약</div>
+          <div class="card-sub">H1–H6 판정</div>
+          <div class="chart-wrap" style="height:240px"><canvas id="hypothesisChart"></canvas></div>
         </div>
       </div>
-      <div class="chart-card">
-        <div class="card-title">📊 가설 검증 결과 요약</div>
-        <div class="card-sub">H1–H6 판정</div>
-        <div class="chart-wrap" style="height:240px"><canvas id="hypothesisChart"></canvas></div>
-      </div>
     </div>
+
   </div>
 </div>
 
@@ -601,6 +651,106 @@ function showResult(d) {
   }).join('');
 }
 
+/* ── EEG File Upload ── */
+function handleFileDrop(event) {
+  event.preventDefault();
+  const dz = document.getElementById('dropZone');
+  dz.style.borderColor = 'var(--border)';
+  dz.style.background = '';
+  const file = event.dataTransfer.files[0];
+  if (file) uploadEegFile(file);
+}
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) uploadEegFile(file);
+  event.target.value = '';
+}
+
+async function uploadEegFile(file) {
+  if (!file.name.endsWith('.parquet')) {
+    showUploadErr('parquet 파일만 지원합니다 (.parquet)');
+    return;
+  }
+  const dz = document.getElementById('dropZone');
+  dz.querySelector('div:first-child').textContent = '📄';
+  dz.querySelector('div:nth-child(2)').textContent = file.name;
+
+  const spinner = document.getElementById('uploadSpinner');
+  const errEl = document.getElementById('uploadErr');
+  const resultEl = document.getElementById('uploadResult');
+  spinner.hidden = false;
+  errEl.style.display = 'none';
+  resultEl.hidden = true;
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const resp = await fetch('/predict/eeg', {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(120000),
+    });
+    const d = await resp.json();
+    if (!resp.ok) { showUploadErr((d.detail || 'HTTP ' + resp.status)); return; }
+    showUploadResult(d);
+  } catch(e) {
+    showUploadErr('업로드 실패: ' + e.message);
+  } finally {
+    spinner.hidden = true;
+    dz.querySelector('div:first-child').textContent = '📁';
+    dz.querySelector('div:nth-child(2)').textContent = '파일을 여기에 드래그하거나 클릭하여 선택';
+  }
+}
+
+function showUploadErr(msg) {
+  const el = document.getElementById('uploadErr');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showUploadResult(d) {
+  document.getElementById('uploadResult').hidden = false;
+  const cls = d.predicted_class.toUpperCase();
+  const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
+  document.getElementById('uploadClass').textContent = cls;
+  document.getElementById('uploadClass').style.color = clr;
+  document.getElementById('uploadModel').textContent = d.model_used;
+  document.getElementById('uploadConf').textContent = (d.confidence * 100).toFixed(1) + '%';
+  document.getElementById('uploadMs').textContent = d.processing_ms.toFixed(0) + ' ms';
+  document.getElementById('uploadFile').textContent = d.segment_id;
+
+  const badge = document.getElementById('uploadR1b');
+  const reason = document.getElementById('uploadR1bReason');
+  if (d.r1b_flag) {
+    badge.className = 'r1b-badge flag';
+    badge.textContent = '⚑ 전문의 우선 확인 (R1b 플래그)';
+    reason.textContent = d.r1b_flag_reason;
+  } else {
+    badge.className = 'r1b-badge ok';
+    badge.textContent = '✓ 자동 판독 가능';
+    reason.textContent = '';
+  }
+
+  const prob = d.probabilities;
+  const sorted = CLASSES.slice().sort((a, b) => prob[b] - prob[a]);
+  document.getElementById('uploadProbBars').innerHTML = sorted.map(c => {
+    const v = prob[c]; const pct = (v * 100).toFixed(1); const clr = CLASS_COLORS[c];
+    return `<div class="prob-row"><div class="prob-cls">${c.toUpperCase()}</div>
+      <div class="prob-track"><div class="prob-fill" style="width:${(v*100).toFixed(1)}%;background:${clr}88">
+        ${v > 0.15 ? `<span>${pct}%</span>` : ''}</div></div>
+      <div class="prob-val">${pct}%</div></div>`;
+  }).join('');
+
+  const m = d.file_meta || {};
+  const qc = m.qc || {};
+  document.getElementById('uploadMeta').innerHTML =
+    `신호 ${m.duration_sec ?? '?'}초 (${(m.shape||['?'])[0]} 샘플) · ` +
+    `피처 ${m.n_features ?? 67}차원 · ` +
+    `QC: NaN ${((qc.nan_ratio||0)*100).toFixed(1)}% · 평탄채널 ${qc.n_flat ?? 0}개 · ` +
+    `최대진폭 ${(qc.max_abs||0).toFixed(0)} µV`;
+}
+
 /* ── Tabs ── */
 function switchTab(id, el) {
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
@@ -627,22 +777,21 @@ function destroyAll(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e)
 function rebuildCharts() {
   destroyAll();
   const c = getColors();
-  const brCtx = document.getElementById('baserateChart');
-  if(brCtx) charts.baserate = new Chart(brCtx,{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'행 단위',data:[7,9,12,20,13,39],backgroundColor:c.blue+'88',borderColor:c.blue,borderWidth:1},{label:'기록 단위',data:[10,14,11,5,9,51],backgroundColor:c.green+'88',borderColor:c.green,borderWidth:1},{label:'E8 예측',data:[9.0,12.4,10.2,2.7,7.6,58.0],backgroundColor:c.teal+'88',borderColor:c.teal,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>v+'%'},max:60}}}});
-  const pdCtx = document.getElementById('predDistChart');
-  if(pdCtx) charts.pred = new Chart(pdCtx,{type:'radar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'실제',data:[10,14,11,5,9,51],fill:true,backgroundColor:c.green+'22',borderColor:c.green,pointBackgroundColor:c.green,pointRadius:3},{label:'E8',data:[9.0,12.4,10.2,2.7,7.6,58.0],fill:true,backgroundColor:c.purple+'22',borderColor:c.purple,pointBackgroundColor:c.purple,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{grid:{color:c.border},ticks:{color:c.dim,backdropColor:'transparent',stepSize:15},pointLabels:{color:c.fg,font:{size:11}}}}}});
-  const sprCtx = document.getElementById('segPerRecordChart');
-  if(sprCtx) charts.spr = new Chart(sprCtx,{type:'bar',data:{labels:['LRDA','GRDA','GPD','Seizure','LPD','Other'],datasets:[{data:[16,10,8.9,7,5.4,2.5],backgroundColor:[c.red+'99',c.amber+'99',c.amber+'66',c.blue+'66',c.blue+'99',c.green+'99'],borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim},max:18},y:{grid:{display:false},ticks:{color:c.fg,font:{size:12}}}}}});
-  const cgCtx = document.getElementById('concordGauge');
-  if(cgCtx) charts.gauge = new Chart(cgCtx,{type:'doughnut',data:{datasets:[{data:[80.1,19.9],backgroundColor:[c.green,c.border],borderWidth:0,circumference:180,rotation:270}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
-  const calibCtx = document.getElementById('calibAllChart');
-  if(calibCtx) charts.calib = new Chart(calibCtx,{type:'line',data:{labels:['0–0.1','0.1–0.2','0.2–0.3','0.3–0.4','0.4–0.5','0.5–0.6','0.6–0.7','0.7–0.8','0.8–0.9','0.9–1.0'],datasets:[{label:'E8 평균 (6클래스)',data:[0.028,0.151,0.259,0.348,0.425,0.502,0.581,0.700,0.799,0.901],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:3},{label:'GPD (ECE=0.005)',data:[0.020,0.152,0.277,0.333,0.426,0.519,0.639,0.747,0.839,0.907],borderColor:c.green,fill:false,tension:.3,pointRadius:3},{label:'완벽',data:[0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95],borderColor:c.faint,borderDash:[4,4],fill:false,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim,maxRotation:40,font:{size:9}}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},min:0,max:1}}}});
-  const eceCtx = document.getElementById('eceChart');
-  if(eceCtx) charts.ece = new Chart(eceCtx,{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{data:[0.0214,0.0211,0.0048,0.0093,0.0079,0.0090],backgroundColor:[c.red+'99',c.red+'88',c.green+'99',c.teal+'88',c.teal+'99',c.blue+'88'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(1)+'%'},max:.03}}}});
-  const klCtx = document.getElementById('klTrendChart');
-  if(klCtx) charts.kl = new Chart(klCtx,{type:'line',data:{labels:['E1','E2','E3','E4','E5','E6','P1v2','E8'],datasets:[{label:'고득표 CV KL',data:[0.501,0.385,0.371,0.323,0.335,0.338,0.486,0.2955],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:c.blue},{label:'Private KL',data:[0.5317,0.4637,null,0.3913,null,null,null,0.3740],borderColor:c.red+'88',borderDash:[4,4],fill:false,tension:.3,pointRadius:4,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim},min:0.2,max:0.6}}}});
-  const hypCtx = document.getElementById('hypothesisChart');
-  if(hypCtx) charts.hyp = new Chart(hypCtx,{type:'doughnut',data:{labels:['지지 (H1·H2)','기각 (H4)','방향일치 (H3·H5)'],datasets:[{data:[2,1,2],backgroundColor:[c.green+'cc',c.red+'cc',c.amber+'cc'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:true,position:'right',labels:{color:c.fg,boxWidth:10,font:{size:11}}}}}});
+  function tryChart(key, id, cfg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const panel = el.closest('.tab-panel');
+    if (panel && !panel.classList.contains('active')) return;
+    charts[key] = new Chart(el, cfg);
+  }
+  tryChart('baserate','baserateChart',{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'행 단위',data:[7,9,12,20,13,39],backgroundColor:c.blue+'88',borderColor:c.blue,borderWidth:1},{label:'기록 단위',data:[10,14,11,5,9,51],backgroundColor:c.green+'88',borderColor:c.green,borderWidth:1},{label:'E8 예측',data:[9.0,12.4,10.2,2.7,7.6,58.0],backgroundColor:c.teal+'88',borderColor:c.teal,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>v+'%'},max:60}}}});
+  tryChart('pred','predDistChart',{type:'radar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'실제',data:[10,14,11,5,9,51],fill:true,backgroundColor:c.green+'22',borderColor:c.green,pointBackgroundColor:c.green,pointRadius:3},{label:'E8',data:[9.0,12.4,10.2,2.7,7.6,58.0],fill:true,backgroundColor:c.purple+'22',borderColor:c.purple,pointBackgroundColor:c.purple,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{grid:{color:c.border},ticks:{color:c.dim,backdropColor:'transparent',stepSize:15},pointLabels:{color:c.fg,font:{size:11}}}}}});
+  tryChart('spr','segPerRecordChart',{type:'bar',data:{labels:['LRDA','GRDA','GPD','Seizure','LPD','Other'],datasets:[{data:[16,10,8.9,7,5.4,2.5],backgroundColor:[c.red+'99',c.amber+'99',c.amber+'66',c.blue+'66',c.blue+'99',c.green+'99'],borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim},max:18},y:{grid:{display:false},ticks:{color:c.fg,font:{size:12}}}}}});
+  tryChart('gauge','concordGauge',{type:'doughnut',data:{datasets:[{data:[80.1,19.9],backgroundColor:[c.green,c.border],borderWidth:0,circumference:180,rotation:270}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+  tryChart('calib','calibAllChart',{type:'line',data:{labels:['0–0.1','0.1–0.2','0.2–0.3','0.3–0.4','0.4–0.5','0.5–0.6','0.6–0.7','0.7–0.8','0.8–0.9','0.9–1.0'],datasets:[{label:'E8 평균 (6클래스)',data:[0.028,0.151,0.259,0.348,0.425,0.502,0.581,0.700,0.799,0.901],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:3},{label:'GPD (ECE=0.005)',data:[0.020,0.152,0.277,0.333,0.426,0.519,0.639,0.747,0.839,0.907],borderColor:c.green,fill:false,tension:.3,pointRadius:3},{label:'완벽',data:[0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95],borderColor:c.faint,borderDash:[4,4],fill:false,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim,maxRotation:40,font:{size:9}}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},min:0,max:1}}}});
+  tryChart('ece','eceChart',{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{data:[0.0214,0.0211,0.0048,0.0093,0.0079,0.0090],backgroundColor:[c.red+'99',c.red+'88',c.green+'99',c.teal+'88',c.teal+'99',c.blue+'88'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(1)+'%'},max:.03}}}});
+  tryChart('kl','klTrendChart',{type:'line',data:{labels:['E1','E2','E3','E4','E5','E6','P1v2','E8'],datasets:[{label:'고득표 CV KL',data:[0.501,0.385,0.371,0.323,0.335,0.338,0.486,0.2955],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:c.blue},{label:'Private KL',data:[0.5317,0.4637,null,0.3913,null,null,null,0.3740],borderColor:c.red+'88',borderDash:[4,4],fill:false,tension:.3,pointRadius:4,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim},min:0.2,max:0.6}}}});
+  tryChart('hyp','hypothesisChart',{type:'doughnut',data:{labels:['지지 (H1·H2)','기각 (H4)','방향일치 (H3·H5)'],datasets:[{data:[2,1,2],backgroundColor:[c.green+'cc',c.red+'cc',c.amber+'cc'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:true,position:'right',labels:{color:c.fg,boxWidth:10,font:{size:11}}}}}});
 }
 
 rebuildCharts();
