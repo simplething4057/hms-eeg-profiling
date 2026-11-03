@@ -14,6 +14,11 @@ echo "Previous image: ${PREV:-none}"
 aws ecr get-login-password --region ap-northeast-2 \
   | docker login --username AWS --password-stdin "$ECR_URI"
 
+# 디스크 공간 확보 (미사용 이미지 전체 제거 — 실행 중 컨테이너 이미지는 보호됨)
+echo "Cleaning up disk space..."
+docker system prune -af || true
+df -h / | tail -1
+
 # 새 이미지 풀
 docker pull "$IMAGE"
 
