@@ -50,8 +50,8 @@ def laterality_features(f, psd):
     # 체인 쌍 비교 : 외측(LL vs RL), 부정중(LP vs RP)
     p = _band_power(f, psd, 0.5, 20)
     for name, a, c in [("lat", "LL", "RL"), ("par", "LP", "RP")]:
-        l, r = p[REGIONS[a]].sum(), p[REGIONS[c]].sum()
-        out[f"abs_asym_chain_{name}"] = float(abs(l - r) / (l + r + EPS))
+        lv, r = p[REGIONS[a]].sum(), p[REGIONS[c]].sum()
+        out[f"abs_asym_chain_{name}"] = float(abs(lv - r) / (lv + r + EPS))
     return out
 
 
@@ -135,7 +135,8 @@ def temporal_features(spec):
     centroid = (w * SPEC_FREQS[: s.shape[1], None]).sum(1) / (w.sum(1) + EPS)  # (4, T)
     t = np.arange(s.shape[-1]) * 2 / 60.0                # 분
     mid = slice(s.shape[-1] // 2 - 30, s.shape[-1] // 2 + 30)  # 중앙 2분
-    slope = lambda y, tt: np.polyfit(tt, y, 1)[0]
+    def slope(y, tt):
+        return np.polyfit(tt, y, 1)[0]
     out = {
         "power_slope_10m": float(np.mean([slope(p, t) for p in power])),
         "power_slope_2m": float(np.mean([slope(p[mid], t[mid]) for p in power])),
