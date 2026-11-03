@@ -72,5 +72,5 @@ jobs:
           # models/ 없이 빌드해 Dockerfile·의존성 설치가 정상인지 검증
           # ECR에 절대 푸시하지 않음
           sed '/^COPY models\//d' Dockerfile > Dockerfile.ci
-          docker build -f Dockerfile.ci -t hms-eeg-api:ci-validate .
+          docker build -f Dockerfile.ci -t hms-eeg-api:ci-validate --build-arg INSTALL_DL=false .
           echo "Build validation OK (no push)" >> $GITHUB_STEP_SUMMARY
