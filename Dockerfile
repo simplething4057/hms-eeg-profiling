@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements-api.txt .
 RUN pip install --no-cache-dir -r requirements-api.txt
 
-# CPU 전용 PyTorch (DL 추론 활성화 시 주석 해제)
-# RUN pip install --no-cache-dir torch==2.3.0+cpu timm==0.9.16 \
-#     --index-url https://download.pytorch.org/whl/cpu
+# CPU 전용 PyTorch
+RUN pip install --no-cache-dir torch==2.3.0+cpu timm==0.9.16 \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # 소스 코드 + 모델 가중치 복사
 COPY src/ src/
