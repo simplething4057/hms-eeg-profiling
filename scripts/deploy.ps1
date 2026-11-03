@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) { Err "ECR 로그인 실패" }
 
 Log "Docker 이미지 빌드 (models/ 포함)..."
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-docker build -t "${RepoName}:latest" $ProjectRoot
+docker build --no-cache -t "${RepoName}:latest" $ProjectRoot
 if ($LASTEXITCODE -ne 0) { Err "Docker 빌드 실패" }
 
 docker tag "${RepoName}:latest" $ImageUri
