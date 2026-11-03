@@ -430,6 +430,9 @@ details[open] .about-chevron{transform:rotate(90deg)}
           </div>
         </div>
 
+        <!-- 확신도 경고 -->
+        <div id="confNote" class="err-banner" style="display:none;margin-top:10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border-color:color-mix(in srgb,var(--amber) 30%,transparent);color:var(--amber)"></div>
+
         <!-- 임상 의미 카드 -->
         <div class="clinical-card" id="clinicalCard">
           <div class="clinical-card-title">임상 판독 보조</div>
@@ -439,11 +442,15 @@ details[open] .about-chevron{transform:rotate(90deg)}
           </div>
           <div class="clinical-row">
             <div class="clinical-row-label">EEG 특징</div>
-            <div class="clinical-row-val" id="clinEeg">—</div>
+            <div class="clinical-row-val" id="clinEeg" style="white-space:pre-line">—</div>
+          </div>
+          <div class="clinical-row">
+            <div class="clinical-row-label">권고 조치</div>
+            <div class="clinical-row-val" id="clinAction" style="color:var(--fg);white-space:pre-line">—</div>
           </div>
           <div class="clinical-row" style="margin-bottom:0">
-            <div class="clinical-row-label">권고 조치</div>
-            <div class="clinical-row-val" id="clinAction" style="color:var(--fg)">—</div>
+            <div class="clinical-row-label">감별 진단</div>
+            <div class="clinical-row-val" id="clinDiff" style="color:var(--fg-faint);font-size:11px">—</div>
           </div>
         </div>
       </div>
@@ -723,39 +730,45 @@ async function analyzeFiles(files) {
 const CLINICAL_INFO = {
   seizure: {
     urgency: 'critical', urgency_label: '즉각 대응',
-    desc: '반복적·진화하는 방전 패턴. 임상 발작 여부 즉시 확인 필요.',
-    eeg: '국소 또는 전반성 리듬성 활동 → 진폭·주파수 진화 → 소멸',
-    action: '신경과 전문의 즉시 호출 · 항경련제 프로토콜 확인',
+    desc: '피질에서 기원한 비정상적 과동기화 방전이 10초 이상 지속되며 진폭·주파수·분포가 시간적으로 진화(evolving)하는 패턴. 임상 발작(경련·의식 소실·자동증)이 동반될 수 있으나 비경련성 발작(NCSE)은 임상 증상 없이 EEG에서만 확인되므로 즉각적인 대조가 필수.',
+    eeg: '시작 : 국소 또는 전반성 고진폭(>50 µV) 리듬성 방전 (주로 5–25 Hz).\n경과 : 주파수 감소·진폭 증가·공간 확산으로 진화 필수 — 진화 없으면 발작으로 분류 불가.\n종료 : 갑작스러운 소멸 후 국소 또는 전반성 서파 억제(postictal suppression) 및 PLEDS 동반 가능.',
+    action: '① 신경과 전문의 즉시 호출.\n② NCSE 여부 확인 — Lorazepam 0.1 mg/kg IV(또는 Midazolam) 투여 후 EEG 반응 평가.\n③ 반응 없을 시 Levetiracetam 60 mg/kg IV 또는 Valproate 40 mg/kg IV.\n④ cEEG 지속 모니터링 전환 · 발작 부담(seizure burden) 정량화.',
+    differential: 'NCSE (운동 증상 없이 EEG만 발작), PLEDS+ (발작 직후 잔류 방전), 리듬성 서파(GRDA/LRDA — 진화 없어 발작과 구별)',
   },
   lpd: {
     urgency: 'high', urgency_label: '우선 확인',
-    desc: '편측 대뇌 국소성 주기적 방전. 피질 과흥분 상태.',
-    eeg: '편측 반복 스파이크/샤프파 (주기 0.5–2 Hz)',
-    action: '24시간 cEEG 모니터링 권고 · 발작 위험 평가',
+    desc: '한쪽 반구에서 스파이크 또는 샤프파가 0.5–3 Hz 주기로 규칙적으로 반복되는 방전. 피질의 국소적 과흥분 상태를 반영하며 급성 구조적 병변(뇌졸중·종양·뇌염) 또는 발작 직후 postictal 상태에서 흔히 나타남. 발작으로 전환(LPD+ 혹은 "ictal-interictal continuum")될 위험이 높음.',
+    eeg: '위상 역전(phase reversal)으로 국소 발생원 확인.\n극파 또는 극-서파 복합체 반복 (주기 일정, 50% 이상 출현율).\n중첩된 빠른 활동(superimposed fast activity) 있을 시 "LPD+" — 발작에 더 가까움.\n진폭 : 통상 50–200 µV, 병변 반대 반구보다 2배 이상 우세.',
+    action: '① cEEG 24–48시간 모니터링 즉시 전환.\n② LPD+ 또는 발작 전환 시 항경련제(ASM) 개시 — Levetiracetam 500–1000 mg BID 우선 고려.\n③ 뇌 MRI DWI · 뇌척수액 검사로 급성 병변/뇌염 감별.\n④ 열성 경련·HSV 뇌염 가능성 시 Acyclovir 경험적 투여.',
+    differential: '급성 뇌졸중(허혈/출혈), HSV 뇌염, 대사 뇌병증, 뇌종양, 발작 직후 postictal LPD',
   },
   gpd: {
     urgency: 'high', urgency_label: '우선 확인',
-    desc: '양측 전반적 주기적 방전. 중증 뇌병증과 연관.',
-    eeg: '전반성 스파이크-서파 (1–2 Hz) 또는 삼상파',
-    action: 'ICU 협진 권고 · 대사성·독성 원인 감별',
+    desc: '양측 반구에서 동시에 나타나는 전반성 주기성 방전. 삼상파(Triphasic wave) 형태 시 간성·요독성 등 대사 뇌병증을 강하게 시사. Burst-suppression 패턴과 동반될 경우 심각한 미만성 뇌손상을 의미하며 예후 불량 지표로 활용됨.',
+    eeg: '전반성 스파이크, 폴리스파이크 또는 샤프-서파 복합체 (0.5–3 Hz).\n삼상파 : 전두엽 우세, 앞→뒤 위상 지연(anterior-to-posterior lag), 양성 1상-음성 2상-양성 3상 형태.\nBurst-suppression : 고진폭 방전군(burst)과 전압 억제기(suppression)가 교대 — 마취·저산소 뇌증 감별 필수.',
+    action: '① 대사 원인 즉시 감별 — 암모니아(간성), BUN/Cr(요독성), 혈당, 전해질, 갑상선 기능.\n② 삼상파 형태 시 Lactulose/Rifaximin 또는 투석 고려.\n③ NCSE 배제 위해 Benzodiazepine 시험 투여 후 EEG 변화 확인.\n④ 뇌파 지속 모니터링 및 신경 예후 평가.',
+    differential: '간성 뇌병증(삼상파), 요독성 뇌병증, CJD(1 Hz 주기성), NCSE(Benzodiazepine에 반응), 저산소 뇌손상(Burst-suppression)',
   },
   lrda: {
     urgency: 'medium', urgency_label: '경과 관찰',
-    desc: '편측 리듬성 서파 활동. 국소 기능 저하를 의미.',
-    eeg: '국소 0.5–4 Hz 리듬성 델타 (비주기성)',
-    action: '발작간기 방전 여부 추적 · MRI 병변 확인',
+    desc: '한쪽 반구에서 0.5–4 Hz 대역 델타파가 리듬성으로 반복되나 주기성 방전의 정의(≥50% 출현, 일정 주기)를 충족하지 않는 패턴. 국소 피질 기능 저하를 반영하며 LPD나 발작의 전구 소견으로 나타날 수 있어 주의 깊은 추적이 필요.',
+    eeg: '국소 0.5–4 Hz 리듬성 서파, 편측 우세.\n위상 역전으로 병변 반구 확인 — 주로 측두·두정 부위.\n중첩 빠른 활동(LRDA+) : 발작에 더 근접 — 주의 필요.\n진폭 변화 없이 단조로운 반복이 특징 (주기 발생 제외).',
+    action: '① 뇌 MRI(DWI 포함) 으로 국소 구조적 병변 확인 — 뇌졸중, 종양, 국소 피질 이형성 감별.\n② cEEG 12–24시간 추적 — LPD 또는 발작 전환 여부 모니터링.\n③ 임상 발작 병력 있을 시 ASM 선제 투여 고려.\n④ 급성기 아닌 경우 1–2주 후 외래 EEG 추적.',
+    differential: '급성 뇌경색(국소 서파화), 국소 뇌염, 피질 이형성증, 발작 직후 서파화, 두개 내 종양 압박',
   },
   grda: {
     urgency: 'medium', urgency_label: '경과 관찰',
-    desc: '전반적 리듬성 서파. 졸음·경증 뇌병증 또는 정상 변이.',
-    eeg: '전반성 1–3 Hz 리듬성 델타 (양측 대칭)',
-    action: '의식 수준 평가 · 임상 상관 종합 판단',
+    desc: '양측 대칭적 전반성 1–3 Hz 리듬성 델타파. 수면 2기 또는 과호흡 후 정상 변이로 나타날 수 있으나 지속적이거나 의식 저하와 동반될 경우 미만성 뇌기능 저하(경증 뇌병증)를 의미. 전두부 우세형(Frontal GRDA)은 대사·독성 뇌병증에서 흔함.',
+    eeg: '전반성 1–3 Hz 고진폭 서파, 양측 대칭 (F > P 우세).\n수면 또는 과호흡 유발 시 정상 변이 여부 감별 필요.\n전압 : 일반적으로 75–200 µV, 배경 활동 억제 동반 시 중증 시사.\nGRDA+ (중첩 빠른 활동) : 발작성 변환 가능성 — 주의.',
+    action: '① 의식 수준(GCS) 및 집중력 평가 — 정상이면 수면 또는 과호흡 반응성 배제 후 루틴 판독.\n② 지속적·반복적 GRDA : 전해질(Na, K, Ca), 혈당, 간기능, 갑상선 기능 기본 검사.\n③ 약물(진정제·항경련제) 과용 여부 확인.\n④ 필요 시 30분 기록 cEEG로 동적 변화 관찰.',
+    differential: '수면 2기 K-complex 연속(정상), 과호흡 유발 서파(정상), 경증 대사 뇌병증, 진정제 과용, NCSE 초기',
   },
   other: {
     urgency: 'low', urgency_label: '루틴 판독',
-    desc: '5대 특이 패턴에 해당하지 않는 EEG 소견.',
-    eeg: '정상 또는 비특이적 서파화',
-    action: '임상 맥락 종합 판독 · 필요 시 추적 EEG 고려',
+    desc: '발작·LPD·GPD·LRDA·GRDA의 정의 기준을 충족하지 않는 EEG 소견. 정상 변이(알파 변이, 수면 방추 등), 미만성 서파화, 저진폭 또는 비특이적 패턴이 포함됨. 모델 확신도가 낮거나(< 47%) 신호 품질 불량일 경우에도 Other로 분류될 수 있음.',
+    eeg: '정상 : 8–13 Hz 후두 우세 알파, 적절한 베타, 수면 방추·K-complex.\n경증 이상 : 미만성 4–7 Hz 세타파화, 알파 기저 활동 감소, 좌우 비대칭.\n저진폭 배경 : 전반성 억제 — 진정제·저산소 감별 필요.',
+    action: '① 신호 품질(NaN 비율 > 20%, 최대 진폭 > 300 µV) 불량 시 재기록 권고.\n② 임상 맥락(의식 수준, 약물, 전신 상태) 종합 판독.\n③ 이상 소견 의심 시 30분 이상 기록 추가 또는 수면-각성 주기 포함 cEEG.\n④ 정상 판독 시 외래 추적 간격 임상 판단에 따라 조정.',
+    differential: '정상 EEG(알파 변이·과호흡 반응), 진정제 효과, 경증 뇌병증, 신호 불량 허위음성',
   },
 };
 
@@ -815,6 +828,15 @@ function showUploadResult(d) {
   document.getElementById('clinDesc').textContent = info.desc;
   document.getElementById('clinEeg').textContent = info.eeg;
   document.getElementById('clinAction').textContent = info.action;
+  document.getElementById('clinDiff').textContent = info.differential;
+
+  const confNote = document.getElementById('confNote');
+  if (d.confidence < 0.47) {
+    confNote.textContent = `⚠ 확신도 ${(d.confidence*100).toFixed(1)}% — 임계값(47%) 미만. 판독 보조 참고용으로만 활용하고 전문의 직접 판독 권고.`;
+    confNote.style.display = 'block';
+  } else {
+    confNote.style.display = 'none';
+  }
 
   const specCanvas = document.getElementById('specCanvas');
   const specPlaceholder = document.getElementById('specPlaceholder');
