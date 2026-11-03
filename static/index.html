@@ -150,6 +150,27 @@ details[open] .about-chevron{transform:rotate(90deg)}
 .analysis-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
 .analysis-section-hdr{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .analysis-section-hdr::before{content:"";width:3px;height:14px;background:var(--blue);border-radius:2px;flex-shrink:0}
+/* ── Architecture diagram ── */
+.arch-flow{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;margin:12px 0}
+.arch-step{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;flex:1;min-width:110px}
+.arch-step--wide{flex:1.6;min-width:170px}
+.arch-step-label{font-size:11px;font-weight:600;color:var(--fg);margin-bottom:6px}
+.arch-step-detail{font-size:10px;color:var(--fg-faint);line-height:1.75;font-family:var(--mono)}
+.arch-arrow{display:flex;align-items:center;align-self:center;padding:0 5px;color:var(--fg-faint);font-size:15px;flex-shrink:0}
+.arch-ensemble-row{display:flex;align-items:flex-start;gap:8px}
+.arch-ensemble-branch{flex:1;min-width:0}
+.arch-ensemble-sep{display:flex;align-items:center;color:var(--fg-faint);font-size:13px;padding-top:2px}
+.arch-badge{display:inline-block;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:600;font-family:var(--mono);margin-bottom:5px}
+.arch-badge--dl{background:var(--blue-d);color:var(--blue)}
+.arch-badge--ml{background:var(--green-d);color:var(--green)}
+@media(max-width:680px){.arch-flow{flex-direction:column}.arch-arrow{transform:rotate(90deg);align-self:flex-start;padding:3px 14px}}
+/* ── Upload / timeline ── */
+.upload-progress{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:11px 14px;font-size:12px;color:var(--fg-dim);font-family:var(--mono)}
+.seg-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.seg-tbl th,.seg-tbl td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+.seg-tbl th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+.seg-tbl td{color:var(--fg-dim)}.seg-tbl tr.row-flag td{color:var(--amber)}
+.seg-tbl tr.row-err td{color:var(--red)}.seg-tbl td.td-mono{font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -263,106 +284,129 @@ details[open] .about-chevron{transform:rotate(90deg)}
     <div class="tab" onclick="switchTab('analysis',this)">모델 분석</div>
   </div>
 
-  <!-- ══ TAB 0: 실시간 예측 ══ -->
+  <!-- ══ TAB 0: 임상 파이프라인 데모 ══ -->
   <div id="tab-predict" class="tab-panel active">
+
+    <!-- API 상태 -->
     <div class="api-status-row">
       <span id="apiDot" class="live-dot"></span>
       <span id="apiStatusText" style="color:var(--fg-dim)">API 상태 확인 중…</span>
       <span style="margin-left:auto;color:var(--fg-faint)">E8 앙상블 (DL 85% + P1 15%)</span>
     </div>
 
-    <div class="predict-grid">
-      <!-- 왼쪽: 입력 패널 -->
-      <div class="predict-panel">
-        <h3>입력 설정</h3>
+    <!-- 임상 연동 파이프라인 아키텍처 -->
+    <details class="about-section" style="margin-bottom:20px">
+      <summary>임상 연동 파이프라인 아키텍처 <span class="about-chevron">›</span></summary>
 
-        <div style="font-size:11px;color:var(--fg-faint);margin-bottom:6px">구간 ID</div>
-        <input class="seg-input" id="segId" value="demo-001" placeholder="segment id">
-
-        <div style="font-size:11px;color:var(--fg-faint);margin-bottom:6px;margin-top:10px">샘플 프리셋 (67차원 qEEG)</div>
-        <div class="sample-btn-row">
-          <button class="sample-btn active" onclick="selectSample('random',this)">랜덤</button>
-          <button class="sample-btn" onclick="selectSample('high_conf',this)">고확신</button>
-          <button class="sample-btn" onclick="selectSample('low_conf',this)">저확신</button>
-          <button class="sample-btn" onclick="selectSample('noisy',this)">잡음</button>
+      <div class="arch-flow">
+        <div class="arch-step">
+          <div class="arch-step-label">EEG 장비</div>
+          <div class="arch-step-detail">19채널 · 200 Hz<br>표준 10-20 전극계<br>50초 슬라이딩 윈도우</div>
         </div>
-        <div id="sampleDesc" style="font-size:10px;color:var(--fg-faint);line-height:1.7;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:7px 10px;font-family:var(--mono)">
-          <strong style="color:var(--fg-dim)">랜덤:</strong> 균일 분포 노이즈 입력. 모델이 어떤 클래스를 기본 선호하는지 확인
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="arch-step-label">전처리</div>
+          <div class="arch-step-detail">더블 바나나 몽타주<br>(16채널 차동 참조)<br>NaN 보간 · 대역통과 필터</div>
         </div>
-
-        <button class="run-btn" id="runBtn" onclick="runPredict()">예측 실행</button>
-        <div class="err-banner" id="errBanner"></div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="arch-step-label">피처 추출</div>
+          <div class="arch-step-detail">qEEG 67차원<br>(밴드파워·엔트로피·QC)<br>스펙트로그램 400×556</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step arch-step--wide">
+          <div class="arch-step-label">E8 앙상블</div>
+          <div class="arch-ensemble-row">
+            <div class="arch-ensemble-branch">
+              <div class="arch-badge arch-badge--dl">DL 85%</div>
+              <div class="arch-step-detail">EfficientNet-B0<br>E4+E5 × 5-fold<br>스펙트로그램 입력</div>
+            </div>
+            <div class="arch-ensemble-sep">+</div>
+            <div class="arch-ensemble-branch">
+              <div class="arch-badge arch-badge--ml">ML 15%</div>
+              <div class="arch-step-detail">LightGBM P1v2<br>× 5-fold<br>qEEG 입력</div>
+            </div>
+          </div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-step">
+          <div class="arch-step-label">판독 보조</div>
+          <div class="arch-step-detail">6클래스 확률<br>R1b 플래그<br>(저확신·고위험 경고)</div>
+        </div>
       </div>
 
-      <!-- 오른쪽: 결과 패널 -->
-      <div>
-        <div id="resultEmpty" class="chart-card" style="text-align:center;padding:40px;color:var(--fg-faint);font-size:12px">
-          샘플을 선택하고 <strong style="color:var(--fg-dim)">예측 실행</strong>을 눌러주세요
-        </div>
-
-        <div id="resultCard" class="result-card" hidden>
-          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
-            <div class="result-class" id="resultClass">—</div>
-            <div style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)" id="resultModel">—</div>
-          </div>
-          <div class="result-meta">
-            <div class="meta-item">확신도 <strong id="resultConf">—</strong></div>
-            <div class="meta-item">처리 <strong id="resultMs">—</strong></div>
-            <div class="meta-item">구간 <strong id="resultSeg">—</strong></div>
-          </div>
-
-          <div id="r1bBadge" class="r1b-badge"></div>
-          <div id="r1bReason" style="font-size:11px;color:var(--fg-dim);margin-top:6px;font-family:var(--mono)"></div>
-
-          <div class="prob-bars" id="probBars"></div>
-        </div>
+      <div class="note blue" style="margin-top:4px">
+        <strong>실제 임상 연동 시:</strong> EEG 장비 소프트웨어 → 50초 윈도우 추출 → <code style="font-family:var(--mono)">/predict/eeg</code> API 호출 → 판독 보조 알림.
+        현재 데모는 HMS 대회 형식 <code style="font-family:var(--mono)">.parquet</code> 파일 업로드로 위 파이프라인 전체를 실행합니다.
+        여러 파일을 한 번에 업로드하면 연속 구간 타임라인을 확인할 수 있습니다.
       </div>
-    </div>
+    </details>
 
-    <div class="note blue" style="margin-top:16px">
-      <strong>참고:</strong> E8 전체 앙상블 활성화 상태. EfficientNet-B0 E4·E5 각 5-fold (CPU 추론) + LightGBM P1v2 5-fold를
-      0.85×DL + 0.15×P1 가중치로 결합하여 예측합니다.
-    </div>
-
-    <!-- ══ 파일 업로드 추론 ══ -->
-    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:12px">📂 EEG 파일 업로드 추론</div>
-      <div style="font-size:11px;color:var(--fg-dim);margin-bottom:10px">
-        HMS 대회 형식의 <code style="font-family:var(--mono);background:var(--surface2);padding:1px 4px;border-radius:3px">.parquet</code> EEG 파일을 업로드하면
-        전처리 파이프라인(몽타주 → QC → 필터 → qEEG 피처 + 스펙트로그램)을 서버에서 실행하고 E8 앙상블로 예측합니다.
+    <!-- EEG 파일 분석 (메인) -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px">EEG 파일 분석</div>
+      <div style="font-size:11px;color:var(--fg-dim);margin-bottom:12px">
+        HMS 형식 <code style="font-family:var(--mono);background:var(--surface2);padding:1px 4px;border-radius:3px">.parquet</code> 파일을 업로드하세요.
+        여러 파일을 선택하면 구간별 확률 타임라인으로 표시됩니다.
       </div>
 
       <div id="dropZone" style="border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s"
            onclick="document.getElementById('eegFileInput').click()"
-           ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='color-mix(in srgb,var(--accent) 6%,transparent)'"
+           ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='color-mix(in srgb,var(--blue) 5%,transparent)'"
            ondragleave="this.style.borderColor='var(--border)';this.style.background=''"
            ondrop="handleFileDrop(event)">
-        <div style="font-size:28px;margin-bottom:6px">📁</div>
-        <div style="font-size:12px;color:var(--fg-dim)">파일을 여기에 드래그하거나 클릭하여 선택</div>
-        <div style="font-size:10px;color:var(--fg-faint);margin-top:4px">.parquet · 최대 50 MB</div>
+        <div style="font-size:26px;margin-bottom:6px">&#x1F4C2;</div>
+        <div style="font-size:12px;color:var(--fg-dim)">파일을 드래그하거나 클릭하여 선택</div>
+        <div style="font-size:10px;color:var(--fg-faint);margin-top:4px">.parquet · 다중 선택 가능 · 최대 50 MB / 파일</div>
       </div>
-      <input type="file" id="eegFileInput" accept=".parquet" style="display:none" onchange="handleFileSelect(event)">
+      <input type="file" id="eegFileInput" accept=".parquet" multiple style="display:none" onchange="handleFileSelect(event)">
 
-      <div id="uploadResult" hidden style="margin-top:14px">
-        <div class="result-card" id="uploadResultCard">
-          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
-            <div class="result-class" id="uploadClass">—</div>
-            <div style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)" id="uploadModel">—</div>
-          </div>
-          <div class="result-meta">
-            <div class="meta-item">확신도 <strong id="uploadConf">—</strong></div>
-            <div class="meta-item">처리 <strong id="uploadMs">—</strong></div>
-            <div class="meta-item">파일 <strong id="uploadFile">—</strong></div>
-          </div>
-          <div id="uploadR1b" class="r1b-badge" style="margin-top:8px"></div>
-          <div id="uploadR1bReason" style="font-size:11px;color:var(--fg-dim);margin-top:4px;font-family:var(--mono)"></div>
-          <div class="prob-bars" id="uploadProbBars" style="margin-top:14px"></div>
-          <div id="uploadMeta" style="font-size:10px;color:var(--fg-faint);margin-top:12px;font-family:var(--mono);line-height:1.8"></div>
-        </div>
+      <div id="uploadProgress" hidden class="upload-progress" style="margin-top:10px">
+        <span id="progressText">분석 중…</span>
       </div>
       <div id="uploadErr" class="err-banner" style="margin-top:8px"></div>
-      <div id="uploadSpinner" hidden style="text-align:center;padding:16px;color:var(--fg-dim);font-size:12px">⏳ 서버에서 전처리 및 추론 중…</div>
     </div>
+
+    <!-- 단일 파일 결과 -->
+    <div id="singleResult" hidden style="margin-bottom:20px">
+      <div class="result-card" id="uploadResultCard">
+        <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+          <div class="result-class" id="uploadClass">—</div>
+          <div style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)" id="uploadModel">—</div>
+        </div>
+        <div class="result-meta">
+          <div class="meta-item">확신도 <strong id="uploadConf">—</strong></div>
+          <div class="meta-item">처리 <strong id="uploadMs">—</strong></div>
+          <div class="meta-item">파일 <strong id="uploadFile">—</strong></div>
+        </div>
+        <div id="uploadR1b" class="r1b-badge" style="margin-top:8px"></div>
+        <div id="uploadR1bReason" style="font-size:11px;color:var(--fg-dim);margin-top:4px;font-family:var(--mono)"></div>
+        <div class="prob-bars" id="uploadProbBars" style="margin-top:14px"></div>
+        <div id="uploadMeta" style="font-size:10px;color:var(--fg-faint);margin-top:12px;font-family:var(--mono);line-height:1.8"></div>
+      </div>
+    </div>
+
+    <!-- 연속 구간 타임라인 (다중 파일) -->
+    <div id="timelineSection" hidden>
+      <div style="font-size:13px;font-weight:600;color:var(--fg);margin-bottom:16px">연속 구간 분석</div>
+      <div class="chart-card" style="margin-bottom:16px">
+        <div class="card-title">클래스 확률 타임라인</div>
+        <div class="card-sub">구간별 E8 앙상블 예측 확률 추이</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="timelineChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">구간별 판독 결과</div>
+        <div style="overflow-x:auto;margin-top:10px">
+          <table class="seg-tbl">
+            <thead><tr>
+              <th>#</th><th>파일</th><th>판독</th><th>확신도</th><th>R1b</th><th>처리</th>
+            </tr></thead>
+            <tbody id="segTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══ TAB 1: 모델 분석 ══ -->
@@ -522,35 +566,8 @@ details[open] .about-chevron{transform:rotate(90deg)}
 const CLASSES = ['seizure','lpd','gpd','lrda','grda','other'];
 const CLASS_COLORS = {seizure:'#f85149',lpd:'#e3b341',gpd:'#bc8cff',lrda:'#58a6ff',grda:'#2ecdcb',other:'#3fb950'};
 
-/* ── Samples ── */
-const SAMPLES = {
-  random: () => Array.from({length:64},()=>Math.random()*2-1).concat([0,0,1.2]),
-  high_conf: () => [
-    2.1,1.8,0.3,-0.5,-0.8,1.9,1.7,0.4,-0.4,-0.7,
-    0.1,-0.2,-0.1,0.0,0.1,0.0,-0.1,0.0,0.1,-0.1,
-    1.5,1.3,0.2,-0.3,-0.6,1.6,1.4,0.3,-0.3,-0.5,
-    0.5,0.4,0.1,-0.1,-0.2,0.6,0.5,0.2,-0.2,-0.3,
-    -0.1,0.0,0.0,0.1,-0.1,0.0,0.1,0.0,-0.1,0.0,
-    0.8,0.7,0.2,-0.2,-0.4,0.9,0.8,0.3,-0.3,-0.5,
-    0.2,0.3,0.1,0.0, 0,0,1.0
-  ],
-  low_conf: () => Array.from({length:64},()=>Math.random()*0.4-0.2).concat([0.05,1,0.8]),
-  noisy: () => Array.from({length:64},()=>Math.random()*4-2).concat([0.3,5,3.5]),
-};
-let currentSample = 'random';
-
-const SAMPLE_DESCS = {
-  random: '<strong style="color:var(--fg-dim)">랜덤:</strong> 균일 분포 노이즈 입력. 모델이 어떤 클래스를 기본 선호하는지 확인',
-  high_conf: '<strong style="color:var(--fg-dim)">고확신:</strong> Seizure·LPD 패턴 강조 피처. 편측 주기성 방전 방향 신호. R1b 플래그 없을 것으로 예상',
-  low_conf: '<strong style="color:var(--fg-dim)">저확신:</strong> 파워가 매우 낮고 QC 포화 있음. p_max &lt; 0.47 가능성 높아 R1b 플래그 예상',
-  noisy: '<strong style="color:var(--fg-dim)">잡음:</strong> 과도 진폭 + 높은 artifact_ratio. 신호 불량 케이스. QC 지표가 플래그에 직접 반영',
-};
-function selectSample(name, btn) {
-  currentSample = name;
-  document.querySelectorAll('.sample-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('sampleDesc').innerHTML = SAMPLE_DESCS[name] || '';
-}
+let timelineResults = [];
+let timelineChart = null;
 
 /* ── API health ── */
 async function checkHealth() {
@@ -575,132 +592,21 @@ async function checkHealth() {
   }
 }
 
-/* ── Predict ── */
-async function runPredict() {
-  const btn = document.getElementById('runBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> 추론 중…';
-
-  const features = SAMPLES[currentSample]();
-  const segId = document.getElementById('segId').value || 'demo-001';
-
-  try {
-    const resp = await fetch('/predict', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({segment_id: segId, qeeg_features: features}),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const d = await resp.json();
-    document.getElementById('errBanner').style.display = 'none';
-    showResult(d);
-  } catch(e) {
-    const eb = document.getElementById('errBanner');
-    eb.textContent = '예측 실패: ' + e.message;
-    eb.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '예측 실행';
-  }
-}
-
-function showResult(d) {
-  document.getElementById('resultEmpty').hidden = true;
-  const card = document.getElementById('resultCard');
-  card.hidden = false;
-
-  const cls = d.predicted_class.toUpperCase();
-  const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
-  document.getElementById('resultClass').textContent = cls;
-  document.getElementById('resultClass').style.color = clr;
-  document.getElementById('resultModel').textContent = d.model_used;
-  document.getElementById('resultConf').textContent = (d.confidence * 100).toFixed(1) + '%';
-  document.getElementById('resultMs').textContent = d.processing_ms.toFixed(0) + ' ms';
-  document.getElementById('resultSeg').textContent = d.segment_id;
-
-  const badge = document.getElementById('r1bBadge');
-  const reason = document.getElementById('r1bReason');
-  if (d.r1b_flag) {
-    badge.className = 'r1b-badge flag';
-    badge.textContent = '⚑ 전문의 우선 확인 (R1b 플래그)';
-    reason.textContent = d.r1b_flag_reason;
-  } else {
-    badge.className = 'r1b-badge ok';
-    badge.textContent = '✓ 자동 판독 가능';
-    reason.textContent = '';
-  }
-
-  const prob = d.probabilities;
-  const sorted = CLASSES.slice().sort((a,b) => prob[b]-prob[a]);
-  const bars = document.getElementById('probBars');
-  bars.innerHTML = sorted.map(cls => {
-    const v = prob[cls];
-    const pct = (v*100).toFixed(1);
-    const w = Math.max(v*100, 0).toFixed(1);
-    const clr = CLASS_COLORS[cls];
-    return `<div class="prob-row">
-      <div class="prob-cls">${cls.toUpperCase()}</div>
-      <div class="prob-track">
-        <div class="prob-fill" style="width:${w}%;background:${clr}88">
-          ${v > 0.15 ? `<span>${pct}%</span>` : ''}
-        </div>
-      </div>
-      <div class="prob-val">${pct}%</div>
-    </div>`;
-  }).join('');
-}
-
-/* ── EEG File Upload ── */
+/* ── EEG File Upload (multi) ── */
 function handleFileDrop(event) {
   event.preventDefault();
   const dz = document.getElementById('dropZone');
   dz.style.borderColor = 'var(--border)';
   dz.style.background = '';
-  const file = event.dataTransfer.files[0];
-  if (file) uploadEegFile(file);
+  const files = Array.from(event.dataTransfer.files).filter(f => f.name.endsWith('.parquet'));
+  if (files.length) analyzeFiles(files);
+  else showUploadErr('parquet 파일만 지원합니다 (.parquet)');
 }
 
 function handleFileSelect(event) {
-  const file = event.target.files[0];
-  if (file) uploadEegFile(file);
+  const files = Array.from(event.target.files).filter(f => f.name.endsWith('.parquet'));
+  if (files.length) analyzeFiles(files);
   event.target.value = '';
-}
-
-async function uploadEegFile(file) {
-  if (!file.name.endsWith('.parquet')) {
-    showUploadErr('parquet 파일만 지원합니다 (.parquet)');
-    return;
-  }
-  const dz = document.getElementById('dropZone');
-  dz.querySelector('div:first-child').textContent = '📄';
-  dz.querySelector('div:nth-child(2)').textContent = file.name;
-
-  const spinner = document.getElementById('uploadSpinner');
-  const errEl = document.getElementById('uploadErr');
-  const resultEl = document.getElementById('uploadResult');
-  spinner.hidden = false;
-  errEl.style.display = 'none';
-  resultEl.hidden = true;
-
-  try {
-    const form = new FormData();
-    form.append('file', file);
-    const resp = await fetch('/predict/eeg', {
-      method: 'POST',
-      body: form,
-      signal: AbortSignal.timeout(120000),
-    });
-    const d = await resp.json();
-    if (!resp.ok) { showUploadErr((d.detail || 'HTTP ' + resp.status)); return; }
-    showUploadResult(d);
-  } catch(e) {
-    showUploadErr('업로드 실패: ' + e.message);
-  } finally {
-    spinner.hidden = true;
-    dz.querySelector('div:first-child').textContent = '📁';
-    dz.querySelector('div:nth-child(2)').textContent = '파일을 여기에 드래그하거나 클릭하여 선택';
-  }
 }
 
 function showUploadErr(msg) {
@@ -709,8 +615,50 @@ function showUploadErr(msg) {
   el.style.display = 'block';
 }
 
+async function analyzeFiles(files) {
+  const errEl = document.getElementById('uploadErr');
+  const progressEl = document.getElementById('uploadProgress');
+  const progressTxt = document.getElementById('progressText');
+  const singleEl = document.getElementById('singleResult');
+  const timelineEl = document.getElementById('timelineSection');
+
+  errEl.style.display = 'none';
+  singleEl.hidden = true;
+  timelineEl.hidden = true;
+  progressEl.hidden = false;
+  timelineResults = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    progressTxt.textContent = `분석 중… ${i + 1} / ${files.length} — ${file.name}`;
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const resp = await fetch('/predict/eeg', {
+        method: 'POST',
+        body: form,
+        signal: AbortSignal.timeout(120000),
+      });
+      const d = await resp.json();
+      if (!resp.ok) { showUploadErr((d.detail || 'HTTP ' + resp.status)); continue; }
+      timelineResults.push(d);
+    } catch(e) {
+      showUploadErr('업로드 실패: ' + e.message);
+    }
+  }
+
+  progressEl.hidden = true;
+
+  if (timelineResults.length === 0) return;
+  if (timelineResults.length === 1) {
+    showUploadResult(timelineResults[0]);
+  } else {
+    renderTimeline();
+  }
+}
+
 function showUploadResult(d) {
-  document.getElementById('uploadResult').hidden = false;
+  document.getElementById('singleResult').hidden = false;
   const cls = d.predicted_class.toUpperCase();
   const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
   document.getElementById('uploadClass').textContent = cls;
@@ -749,6 +697,55 @@ function showUploadResult(d) {
     `피처 ${m.n_features ?? 67}차원 · ` +
     `QC: NaN ${((qc.nan_ratio||0)*100).toFixed(1)}% · 평탄채널 ${qc.n_flat ?? 0}개 · ` +
     `최대진폭 ${(qc.max_abs||0).toFixed(0)} µV`;
+}
+
+function renderTimeline() {
+  document.getElementById('timelineSection').hidden = false;
+  const labels = timelineResults.map((d, i) => `#${i+1}`);
+
+  const datasets = CLASSES.map(cls => ({
+    label: cls.toUpperCase(),
+    data: timelineResults.map(d => +(d.probabilities[cls] * 100).toFixed(1)),
+    borderColor: CLASS_COLORS[cls],
+    backgroundColor: CLASS_COLORS[cls] + '22',
+    borderWidth: 2,
+    pointRadius: 4,
+    tension: 0.3,
+    fill: false,
+  }));
+
+  const canvas = document.getElementById('timelineChart');
+  if (timelineChart) { timelineChart.destroy(); timelineChart = null; }
+  timelineChart = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--fg-dim'), font: { size: 11 }, boxWidth: 12, padding: 10 } },
+        tooltip: { mode: 'index', intersect: false },
+      },
+      scales: {
+        x: { ticks: { color: 'var(--fg-faint)' }, grid: { color: 'var(--border)' } },
+        y: { min: 0, max: 100, ticks: { color: 'var(--fg-faint)', callback: v => v + '%' }, grid: { color: 'var(--border)' } },
+      },
+    },
+  });
+
+  const tbody = document.getElementById('segTableBody');
+  tbody.innerHTML = timelineResults.map((d, i) => {
+    const rowCls = d.r1b_flag ? 'row-flag' : '';
+    const r1b = d.r1b_flag ? '⚑' : '—';
+    const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
+    return `<tr class="${rowCls}">
+      <td class="td-mono">${i+1}</td>
+      <td>${d.segment_id}</td>
+      <td style="color:${clr};font-weight:600">${d.predicted_class.toUpperCase()}</td>
+      <td class="td-mono">${(d.confidence*100).toFixed(1)}%</td>
+      <td>${r1b}</td>
+      <td class="td-mono">${d.processing_ms.toFixed(0)} ms</td>
+    </tr>`;
+  }).join('');
 }
 
 /* ── Tabs ── */
