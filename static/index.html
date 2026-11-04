@@ -193,6 +193,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
 .seg-tbl th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
 .seg-tbl td{color:var(--fg-dim)}.seg-tbl tr.row-flag td{color:var(--amber)}
 .seg-tbl tr.row-err td{color:var(--red)}.seg-tbl td.td-mono{font-family:var(--mono)}
+.seg-tbl tr.row-best{background:color-mix(in srgb,var(--blue) 8%,transparent)}.seg-tbl tr.row-best td:first-child{color:var(--blue);font-weight:700}
 </style>
 </head>
 <body>
@@ -391,6 +392,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
 
     <!-- 단일 파일 결과 -->
     <div id="singleResult" hidden style="margin-bottom:20px">
+      <div id="scanBanner" style="display:none;padding:8px 14px;border-radius:6px;margin-bottom:12px;font-size:12px;background:color-mix(in srgb,var(--blue) 12%,transparent);border:1px solid color-mix(in srgb,var(--blue) 30%,transparent);color:var(--fg-dim)"></div>
       <div class="result-card" id="uploadResultCard">
         <!-- 헤더: 긴급도 + 클래스 + 파일명 -->
         <div class="urgency-row">
@@ -638,6 +640,7 @@ const CLASS_COLORS = {seizure:'#f85149',lpd:'#e3b341',gpd:'#bc8cff',lrda:'#58a6f
 
 let timelineResults = [];
 let timelineChart = null;
+let bestWindowIdx = -1;
 
 /* ── API health ── */
 async function checkHealth() {
@@ -721,8 +724,19 @@ async function analyzeFiles(files) {
 
   if (timelineResults.length === 0) return;
   if (timelineResults.length === 1) {
-    showUploadResult(timelineResults[0]);
+    const d = timelineResults[0];
+    showUploadResult(d);
+    // 슬라이딩 윈도우 모드: 창별 타임라인도 표시
+    if (d.scan_mode && d.windows && d.windows.length > 1) {
+      timelineResults = d.windows.map(w => ({
+        ...w,
+        segment_id: `${w.start_sec}s~${w.end_sec}s`,
+      }));
+      bestWindowIdx = d.best_window_idx;
+      renderTimeline();
+    }
   } else {
+    bestWindowIdx = -1;
     renderTimeline();
   }
 }
@@ -774,6 +788,17 @@ const CLINICAL_INFO = {
 
 function showUploadResult(d) {
   document.getElementById('singleResult').hidden = false;
+
+  // 슬라이딩 윈도우 스캔 배너
+  const scanBanner = document.getElementById('scanBanner');
+  if (d.scan_mode && d.windows && d.windows.length > 1 && d.best_window_idx != null) {
+    const bw = d.windows[d.best_window_idx];
+    scanBanner.style.display = 'block';
+    scanBanner.textContent = `📡 EEG ${d.file_meta?.duration_sec || '?'}초 / ${d.windows.length}개 구간 스캔 — 가장 의심 구간 (${bw.start_sec}s ~ ${bw.end_sec}s) 기준 분석`;
+  } else {
+    scanBanner.style.display = 'none';
+  }
+
   const cls = d.predicted_class;
   const clsU = cls.toUpperCase();
   const clr = CLASS_COLORS[cls] || 'var(--fg)';
@@ -881,7 +906,9 @@ function renderSpectrogram(b64, canvas) {
 
 function renderTimeline() {
   document.getElementById('timelineSection').hidden = false;
-  const labels = timelineResults.map((d, i) => `#${i+1}`);
+  const labels = timelineResults.map((d, i) =>
+    d.start_sec != null ? `${d.start_sec}s` : `#${i+1}`
+  );
 
   const datasets = CLASSES.map(cls => ({
     label: cls.toUpperCase(),
@@ -914,16 +941,19 @@ function renderTimeline() {
 
   const tbody = document.getElementById('segTableBody');
   tbody.innerHTML = timelineResults.map((d, i) => {
-    const rowCls = d.r1b_flag ? 'row-flag' : '';
+    const isBest = i === bestWindowIdx;
+    const rowCls = [d.r1b_flag ? 'row-flag' : '', isBest ? 'row-best' : ''].filter(Boolean).join(' ');
     const r1b = d.r1b_flag ? '⚑' : '—';
     const clr = CLASS_COLORS[d.predicted_class] || 'var(--fg)';
+    const label = d.start_sec != null ? `${d.start_sec}s ~ ${d.end_sec}s` : d.segment_id;
+    const bestMark = isBest ? ' ★' : '';
     return `<tr class="${rowCls}">
-      <td class="td-mono">${i+1}</td>
-      <td>${d.segment_id}</td>
+      <td class="td-mono">${i+1}${bestMark}</td>
+      <td>${label}</td>
       <td style="color:${clr};font-weight:600">${d.predicted_class.toUpperCase()}</td>
       <td class="td-mono">${(d.confidence*100).toFixed(1)}%</td>
       <td>${r1b}</td>
-      <td class="td-mono">${d.processing_ms.toFixed(0)} ms</td>
+      <td class="td-mono">${(d.processing_ms||0).toFixed(0)} ms</td>
     </tr>`;
   }).join('');
 }

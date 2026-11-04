@@ -72,6 +72,83 @@ def _make_dl_spec_b64(eeg_50s: np.ndarray) -> str | None:
     return base64.b64encode(arr.tobytes()).decode()
 
 
+def _extract_window_features(
+    eeg_50s: np.ndarray,
+    x_cols: list[str],
+    qc: dict,
+) -> np.ndarray:
+    """단일 50초 창 → qeeg_67d 벡터."""
+    spec4 = _make_spec4(eeg_50s)
+    feats = profile_features(eeg_50s, spec4)
+    qc_feats = {
+        "nan_ratio": qc["nan_ratio"],
+        "n_flat": float(qc["n_flat"]),
+        "max_abs": qc["max_abs"],
+    }
+    all_feats = {**feats, **qc_feats}
+    return np.array([all_feats.get(c, 0.0) for c in x_cols], dtype=np.float32)
+
+
+def preprocess_eeg_windows(
+    data: bytes,
+    step_sec: int = 25,
+    max_windows: int = 8,
+) -> tuple[list[dict], dict]:
+    """parquet bytes → 슬라이딩 50초 창 목록 + meta.
+
+    Returns:
+        windows: list of {start_sec, end_sec, qeeg, _eeg_50s}
+        meta: {shape, channels, duration_sec, qc, n_features, n_windows}
+    """
+    eeg_df = pd.read_parquet(io.BytesIO(data))
+    raw = double_banana(eeg_df).astype(np.float32)
+    qc = qc_stats(raw)
+    eeg = interp_nan(raw)
+    eeg = bandpass(eeg)
+
+    n_total = eeg.shape[1]
+    duration_sec = n_total / FS
+
+    from api.predict import ModelServer  # noqa: PLC0415
+    x_cols = ModelServer.instance().p1_meta.get("x_cols", [])
+
+    windows: list[dict] = []
+
+    if n_total < N_SAMPLES:
+        eeg_50s = np.pad(eeg, ((0, 0), (0, N_SAMPLES - n_total)))
+        windows.append({
+            "start_sec": 0.0,
+            "end_sec": round(duration_sec, 1),
+            "qeeg": _extract_window_features(eeg_50s, x_cols, qc),
+            "_eeg_50s": eeg_50s,
+        })
+    else:
+        step = FS * step_sec
+        win = N_SAMPLES
+        starts = list(range(0, n_total - win + 1, step))
+        if len(starts) > max_windows:
+            indices = [round(j * (len(starts) - 1) / (max_windows - 1)) for j in range(max_windows)]
+            starts = [starts[j] for j in indices]
+        for s in starts:
+            eeg_50s = eeg[:, s : s + win]
+            windows.append({
+                "start_sec": round(s / FS, 1),
+                "end_sec": round((s + win) / FS, 1),
+                "qeeg": _extract_window_features(eeg_50s, x_cols, qc),
+                "_eeg_50s": eeg_50s,
+            })
+
+    meta = {
+        "shape": list(eeg_df.shape),
+        "channels": list(eeg_df.columns),
+        "duration_sec": round(duration_sec, 1),
+        "qc": qc,
+        "n_features": int(len(x_cols)),
+        "n_windows": len(windows),
+    }
+    return windows, meta
+
+
 def preprocess_eeg_file(data: bytes) -> tuple[np.ndarray, str | None, dict]:
     """parquet bytes → (qeeg_67d, spec_b64_or_None, meta).
 

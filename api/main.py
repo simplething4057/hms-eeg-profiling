@@ -124,9 +124,9 @@ def predict_batch(requests: list[PredictRequest]) -> list[PredictResponse]:
 
 @app.post("/predict/eeg", tags=["inference"])
 async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
-    """EEG parquet 파일 업로드 → E8 앙상블 추론.
+    """EEG parquet 파일 업로드 → 슬라이딩 윈도우 E8 앙상블 추론.
 
-    전처리 파이프라인: 더블 바나나 몽타주 → QC → 보간/필터 → qEEG 67차원 + 스펙트로그램 → 예측
+    파이프라인: 더블 바나나 몽타주 → QC → 보간/필터 → 50초 창 슬라이딩 스캔 → 최선 창 E8 추론
     """
     if not (file.filename or "").endswith(".parquet"):
         raise HTTPException(status_code=400, detail="parquet 파일만 지원합니다 (.parquet)")
@@ -138,8 +138,8 @@ async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
     import numpy as np  # noqa: PLC0415
 
     try:
-        from api.infer_from_eeg import preprocess_eeg_file  # noqa: PLC0415
-        qeeg_vec, spec_b64, file_meta = preprocess_eeg_file(data)
+        from api.infer_from_eeg import _make_dl_spec_b64, preprocess_eeg_windows  # noqa: PLC0415
+        windows_data, file_meta = preprocess_eeg_windows(data)
     except KeyError as e:
         raise HTTPException(status_code=422, detail=f"EEG 전극 컬럼 없음: {e}") from e
     except Exception as e:
@@ -150,26 +150,85 @@ async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
     if not srv.p1_loaded:
         raise HTTPException(status_code=503, detail="모델 로딩 중입니다.")
 
+    # ── 1단계: 모든 창 빠른 스캔 (DL spec 없이) ─────────────────────
+    window_results: list[dict] = []
     try:
-        result = srv.predict(qeeg=qeeg_vec, spec_b64=spec_b64)
+        for w in windows_data:
+            result = srv.predict(qeeg=w["qeeg"], spec_b64=None)
+            prob = result["prob"]
+            pred_idx = int(np.argmax(prob))
+            window_results.append({
+                "start_sec": w["start_sec"],
+                "end_sec": w["end_sec"],
+                "predicted_class": CLASSES[pred_idx],
+                "probabilities": dict(zip(CLASSES, [round(float(p), 4) for p in prob])),
+                "confidence": round(float(prob[pred_idx]), 4),
+                "r1b_flag": result["flag"],
+                "r1b_flag_reason": result["reason"],
+                "model_used": result["model_used"],
+                "processing_ms": round(result["ms"], 1),
+            })
     except Exception as e:
         logger.exception("추론 오류")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    prob = result["prob"]
-    pred_idx = int(np.argmax(prob))
+    # ── 2단계: 가장 이상한 창 선택 (non-Other 최고 확신도) ───────────
+    def _abnormality_score(wr: dict) -> float:
+        if wr["predicted_class"] != "other":
+            return wr["confidence"]
+        return max(wr["probabilities"][c] for c in CLASSES if c != "other")
+
+    best_idx = max(range(len(window_results)), key=lambda i: _abnormality_score(window_results[i]))
+    best_win = windows_data[best_idx]
+
+    # ── 3단계: 최선 창에 DL spec 추가 → E8 최종 추론 ─────────────────
+    spec_b64: str | None = None
+    try:
+        if srv.dl_loaded:
+            spec_b64 = _make_dl_spec_b64(best_win["_eeg_50s"])
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        final_result = srv.predict(qeeg=best_win["qeeg"], spec_b64=spec_b64)
+        final_prob = final_result["prob"]
+        final_pred_idx = int(np.argmax(final_prob))
+        window_results[best_idx].update({
+            "predicted_class": CLASSES[final_pred_idx],
+            "probabilities": dict(zip(CLASSES, [round(float(p), 4) for p in final_prob])),
+            "confidence": round(float(final_prob[final_pred_idx]), 4),
+            "r1b_flag": final_result["flag"],
+            "r1b_flag_reason": final_result["reason"],
+            "model_used": final_result["model_used"],
+            "processing_ms": round(final_result["ms"], 1),
+        })
+    except Exception as e:
+        logger.exception("최선 창 E8 추론 오류")
+        final_result = {
+            "flag": window_results[best_idx]["r1b_flag"],
+            "reason": window_results[best_idx]["r1b_flag_reason"],
+            "model_used": window_results[best_idx]["model_used"],
+            "ms": window_results[best_idx]["processing_ms"],
+        }
+
+    best_wr = window_results[best_idx]
 
     return {
+        # 기존 단일 결과 필드 (최선 창 기준, backward compat)
         "segment_id": file.filename,
-        "probabilities": dict(zip(CLASSES, [round(float(p), 4) for p in prob])),
-        "predicted_class": CLASSES[pred_idx],
-        "confidence": round(float(prob[pred_idx]), 4),
-        "r1b_flag": result["flag"],
-        "r1b_flag_reason": result["reason"],
-        "model_used": result["model_used"],
-        "processing_ms": round(result["ms"], 1),
+        "predicted_class": best_wr["predicted_class"],
+        "probabilities": best_wr["probabilities"],
+        "confidence": best_wr["confidence"],
+        "r1b_flag": best_wr["r1b_flag"],
+        "r1b_flag_reason": best_wr["r1b_flag_reason"],
+        "model_used": best_wr["model_used"],
+        "processing_ms": best_wr["processing_ms"],
         "file_meta": file_meta,
         "spectrogram_b64": spec_b64,
+        # 슬라이딩 윈도우 필드
+        "windows": window_results,
+        "best_window_idx": best_idx,
+        "scan_mode": file_meta["n_windows"] > 1,
     }
 
 
