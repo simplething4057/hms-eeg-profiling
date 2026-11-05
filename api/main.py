@@ -10,6 +10,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.alerts import check_alert, log_alert
@@ -399,6 +400,13 @@ async def my_history(
     """내 분석 이력 조회"""
     records = await get_history(username=user.username, limit=limit)
     return {"records": records, "total": len(records)}
+
+
+# ── 루트 리다이렉트 ───────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+async def root_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/ui/")
 
 
 # ── 대시보드 UI (StaticFiles — 마지막에 마운트) ───────────────────
