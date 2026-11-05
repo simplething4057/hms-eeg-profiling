@@ -7,11 +7,11 @@
 
 | 엔드포인트 | URL |
 |---|---|
-| 대시보드 | http://3.38.165.173:8000/ui |
-| API 문서 | http://3.38.165.173:8000/docs |
-| 헬스체크 | http://3.38.165.173:8000/health |
+| 대시보드 | http://52.0.94.15:8000/ui/ |
+| API 문서 | http://52.0.94.15:8000/docs |
+| 헬스체크 | http://52.0.94.15:8000/health |
 
-> EC2 t3.small (ap-northeast-2) · Python 3.11 · LightGBM 5-fold · Docker
+> EC2 (us-east-1) · Python 3.9 · LightGBM 5-fold · systemd · Elastic IP 고정
 
 ## 7일 압축 일정 진행 현황
 
@@ -23,7 +23,7 @@
 | D4 | 시각화 대시보드 (5탭) + 실시간 예측 UI 연동 | ✅ 완료 |
 | D5 | ADD 분석 + GitHub Actions CI | ✅ 완료 |
 | D6 | 통합 테스트 (3/3 PASS) | ✅ 완료 |
-| D7 | 피치 자료 정리 | 🔄 진행 중 |
+| D7 | JWT 인증 · RBAC · 감사로그 · 알람 · EC2 재배포 | ✅ 완료 |
 
 ## 최종 성능 요약
 
@@ -162,29 +162,36 @@ hms-eeg-profiling/
 
 ### 아키텍처
 ```
-브라우저 → http://3.38.165.173:8000/ui (Same-Origin)
-         → FastAPI (EC2 t3.small · Docker)
-              POST /predict  GET /health  GET /ui (StaticFiles)
-              ModelServer: LightGBM 5-fold + E8 Blend + R1b Flag
-         → AWS ECR (641150854945.dkr.ecr.ap-northeast-2)
+브라우저 → http://52.0.94.15:8000/ui/ (Same-Origin)
+         → FastAPI (EC2 · systemd · Python 3.9)
+              POST /predict/eeg  GET /health  GET /ui (StaticFiles)
+              ModelServer: LightGBM 5-fold (P1) + E8 Blend + R1b Flag
+              SQLite: analysis_records / audit_logs / alerts
+              JWT RBAC: technician / resident / neurologist
 ```
 
 ### 재배포 방법
 
-```powershell
-# 1. ECR push (코드 변경 후)
-.\scripts\deploy.ps1 -EcrOnly
+```bash
+# 1. 로컬에서 코드 변경 후 push
+git push origin main
 
-# 2. EC2 컨테이너 재시작 (SSM 자동화)
-.\scripts\redeploy_ec2.ps1
+# 2. EC2에서 pull 및 서비스 재시작
+ssh -i hms-eeg-key.pem ec2-user@52.0.94.15
+cd ~/hms-eeg-portfolio && git pull origin main
+sudo systemctl restart hms-eeg
+
+# 서비스 상태 확인
+sudo systemctl status hms-eeg
 ```
 
-### IAM 설정
+### 시연 계정
 
-| 대상 | 정책 |
-|---|---|
-| IAM 사용자 `hms-eeg-deploy` | EC2FullAccess, ECRFullAccess, SSMFullAccess |
-| EC2 역할 `hms-eeg-ec2-role` | ECRReadOnly, AmazonSSMManagedInstanceCore |
+| 계정 | 비밀번호 | 역할 | 권한 |
+|---|---|---|---|
+| `eeg_tech` | `tech1234` | EEG 기사 | 업로드 · 내 이력 |
+| `resident` | `res1234` | 레지던트 | 업로드 · 전체 이력 |
+| `neurologist` | `neuro1234` | 신경과 전문의 | 업로드 · 이력 · 알람 확인 |
 
 ### CI/CD (GitHub Actions)
 - **lint** → ruff
