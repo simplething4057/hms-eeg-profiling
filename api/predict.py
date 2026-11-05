@@ -3,7 +3,8 @@
 구조:
   Stage 1 (QC) : signal_qc.qc_stats — API 입력에서 사전 계산 또는 생략
   Stage 2 (P1) : LightGBM 5-fold 평균 (항상 실행)
-  Stage 3 (DL) : EfficientNet-B0 5-fold 평균 × 2 모델 (스펙트로그램 있을 때)
+  Stage 3 (DL) : EfficientNet-B0 ONNX 2-fold 평균 × 2 모델 (스펙트로그램 있을 때)
+                 ONNX 미존재 시 torch 5-fold 폴백
   Stage 4 (E8) : 0.85 × DL_mean + 0.15 × P1_mean  (DL 없으면 P1 단독)
   Stage 5 (R1b): 저확신(p_max < P_LOW) 또는 근거 불일치 → flag=True
 """
@@ -30,7 +31,8 @@ RECIPE_PATH = ROOT / "e8_recipe.json"
 
 CLASSES = ["seizure", "lpd", "gpd", "lrda", "grda", "other"]
 N_FOLDS = 5
-P_LOW = 0.47        # R1b 저확신 기준 (nb06, 고득표 최고 확률 하위 20%)
+N_FOLDS_ONNX = 2    # ONNX 추론 시 사용할 fold 수 (속도 최적화)
+P_LOW = 0.47        # R1b 저확신 기준 (nb06, 고득점 최고 확률 하위 20%)
 DL_WEIGHT = 0.85    # e8_recipe.json
 
 
@@ -84,12 +86,13 @@ class ModelServer:
     _lock = Lock()
 
     def __init__(self) -> None:
-        self._dl_models: list | None = None   # [(E4_fold0, ...), (E5_fold0, ...)]
+        self._dl_models: list | None = None   # ONNX 세션 또는 torch HMSNet 목록
         self._p1_models: list | None = None   # [lgb.Booster × 5]
         self.p1_meta: dict = {}
         self._recipe: dict = {}
         self._dl_loaded = False
         self._p1_loaded = False
+        self._dl_mode = "none"  # "onnx" | "torch" | "none"
         self._load_p1()
         self._try_load_dl()
 
@@ -127,6 +130,41 @@ class ModelServer:
             self._recipe = json.loads(RECIPE_PATH.read_text())
 
     def _try_load_dl(self) -> None:
+        # ONNX 우선 시도
+        if self._try_load_dl_onnx():
+            return
+        # 폴백: torch 5-fold
+        self._try_load_dl_torch()
+
+    def _try_load_dl_onnx(self) -> bool:
+        try:
+            import onnxruntime as ort  # noqa: PLC0415
+        except ImportError:
+            logger.info("onnxruntime 미설치 — ONNX 모드 건너뜀")
+            return False
+
+        sessions: list = []
+        for model_name in ("E4", "E5"):
+            fold_sess = []
+            for fold in range(N_FOLDS_ONNX):
+                onnx_path = MODEL_DIR / model_name / f"fold{fold}.onnx"
+                if not onnx_path.exists():
+                    logger.info("ONNX 없음 (%s fold%d) — ONNX 모드 건너뜀", model_name, fold)
+                    return False
+                sess = ort.InferenceSession(
+                    str(onnx_path),
+                    providers=["CPUExecutionProvider"],
+                )
+                fold_sess.append(sess)
+            sessions.append(fold_sess)
+
+        self._dl_models = sessions
+        self._dl_loaded = True
+        self._dl_mode = "onnx"
+        logger.info("DL (E4+E5) ONNX %d-fold 로드 완료", N_FOLDS_ONNX)
+        return True
+
+    def _try_load_dl_torch(self) -> None:
         try:
             import timm  # noqa: PLC0415
             import torch  # noqa: PLC0415
@@ -160,7 +198,8 @@ class ModelServer:
 
         self._dl_models = all_models
         self._dl_loaded = True
-        logger.info("DL (E4+E5) 로드 완료")
+        self._dl_mode = "torch"
+        logger.info("DL (E4+E5) torch %d-fold 로드 완료", N_FOLDS)
 
     # ── 추론 ──────────────────────────────────────────────────────
 
@@ -176,18 +215,34 @@ class ModelServer:
     def _infer_dl(self, spec_arr: np.ndarray) -> np.ndarray:
         """(400, 556) float32 → (6,) 확률"""
         assert self._dl_loaded and self._dl_models
+        if self._dl_mode == "onnx":
+            return self._infer_dl_onnx(spec_arr)
+        return self._infer_dl_torch(spec_arr)
+
+    def _infer_dl_onnx(self, spec_arr: np.ndarray) -> np.ndarray:
+        x = spec_arr[np.newaxis, np.newaxis, :, :].astype(np.float32)  # (1,1,400,556)
+        model_probs = []
+        for fold_sessions in self._dl_models:          # E4, E5
+            fold_logits = []
+            for sess in fold_sessions:
+                logits = sess.run(None, {"spec": x})[0][0]  # (6,)
+                exp = np.exp(logits - logits.max())
+                fold_logits.append(exp / exp.sum())
+            model_probs.append(np.array(fold_logits).mean(axis=0))
+        return np.array(model_probs).mean(axis=0)
+
+    def _infer_dl_torch(self, spec_arr: np.ndarray) -> np.ndarray:
         import torch  # noqa: PLC0415
         x = torch.from_numpy(spec_arr).unsqueeze(0).unsqueeze(0)  # (1,1,400,556)
         model_probs = []
         with torch.no_grad():
-            for folds in self._dl_models:          # E4, E5
+            for folds in self._dl_models:
                 fold_logits = []
                 for net in folds:
-                    # HMSNet.forward(spec=x) — 스펙트로그램 직접 입력
-                    out = net.backbone(x)          # (1, 6)
+                    out = net.backbone(x)
                     fold_logits.append(torch.softmax(out, dim=1)[0].numpy())
                 model_probs.append(np.array(fold_logits).mean(axis=0))
-        return np.array(model_probs).mean(axis=0)  # E4+E5 평균 (6,)
+        return np.array(model_probs).mean(axis=0)
 
     def predict(
         self,

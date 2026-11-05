@@ -121,7 +121,12 @@ async def me(user: Annotated[TokenData, Depends(get_current_user)]) -> dict:
 @app.get("/health", tags=["system"])
 def health() -> dict:
     srv = ModelServer.instance()
-    return {"status": "ok", "dl_loaded": srv.dl_loaded, "p1_loaded": srv.p1_loaded}
+    return {
+        "status": "ok",
+        "dl_loaded": srv.dl_loaded,
+        "dl_mode": srv._dl_mode,
+        "p1_loaded": srv.p1_loaded,
+    }
 
 
 # ── 모델 정보 ──────────────────────────────────────────────────────
