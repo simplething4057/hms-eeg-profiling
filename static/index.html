@@ -194,9 +194,83 @@ details[open] .about-chevron{transform:rotate(90deg)}
 .seg-tbl td{color:var(--fg-dim)}.seg-tbl tr.row-flag td{color:var(--amber)}
 .seg-tbl tr.row-err td{color:var(--red)}.seg-tbl td.td-mono{font-family:var(--mono)}
 .seg-tbl tr.row-best{background:color-mix(in srgb,var(--blue) 8%,transparent)}.seg-tbl tr.row-best td:first-child{color:var(--blue);font-weight:700}
+/* ── 로그인 모달 ── */
+.login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.login-box{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:32px 36px;width:100%;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.login-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.login-sub{font-size:11px;color:var(--fg-dim);margin-bottom:24px;font-family:var(--mono)}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:11px;color:var(--fg-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.login-field input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--fg);font-size:13px;font-family:var(--mono);outline:none;transition:border-color .15s}
+.login-field input:focus{border-color:var(--blue)}
+.login-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.login-btn:hover{opacity:.85}
+.login-err{font-size:11px;color:var(--red);font-family:var(--mono);margin-top:10px;display:none}
+.login-hint{background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:16px;font-size:11px;font-family:var(--mono);color:var(--fg-dim);line-height:1.8}
+/* ── 헤더 사용자 정보 & 알람 ── */
+.user-chip{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;font-family:var(--mono);cursor:default}
+.user-role{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-faint)}
+.user-name{color:var(--fg);font-weight:600}
+.logout-btn{font-size:11px;color:var(--fg-dim);border:1px solid var(--border2);background:none;border-radius:5px;padding:4px 10px;cursor:pointer;font-family:var(--mono);transition:border-color .15s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+.alert-badge{position:relative;display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;transition:border-color .15s}
+.alert-badge:hover{border-color:var(--amber)}
+.alert-count{background:var(--red);color:#fff;border-radius:9px;font-size:9px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center;display:none}
+/* ── 알람 패널 ── */
+.alert-panel{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px;margin-bottom:20px;display:none}
+.alert-panel-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--fg-dim);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border2);border-radius:6px;margin-bottom:6px;font-size:12px}
+.alert-item.CRITICAL{border-color:color-mix(in srgb,var(--red) 40%,transparent);background:color-mix(in srgb,var(--red) 5%,transparent)}
+.alert-item.HIGH{border-color:color-mix(in srgb,var(--amber) 40%,transparent);background:color-mix(in srgb,var(--amber) 5%,transparent)}
+.alert-item.MEDIUM{border-color:color-mix(in srgb,var(--blue) 30%,transparent);background:color-mix(in srgb,var(--blue) 4%,transparent)}
+.alert-lvl{font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.08em;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.alert-lvl.CRITICAL{background:var(--red-d);color:var(--red)}
+.alert-lvl.HIGH{background:var(--amber-d);color:var(--amber)}
+.alert-lvl.MEDIUM{background:var(--blue-d);color:var(--blue)}
+.alert-info{flex:1;min-width:0}
+.alert-label{font-weight:600;color:var(--fg);margin-bottom:2px}
+.alert-meta{font-size:11px;color:var(--fg-dim);font-family:var(--mono)}
+.alert-ack-btn{font-size:11px;border:1px solid var(--border2);background:none;color:var(--fg-dim);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:border-color .15s}
+.alert-ack-btn:hover{border-color:var(--green);color:var(--green)}
+/* ── 분석 결과 알람 배너 ── */
+.result-alert{border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;display:none;border-left:3px solid}
+.result-alert.CRITICAL{background:color-mix(in srgb,var(--red) 10%,transparent);border-color:var(--red);color:var(--red)}
+.result-alert.HIGH{background:color-mix(in srgb,var(--amber) 10%,transparent);border-color:var(--amber);color:var(--amber)}
+.result-alert.MEDIUM{background:color-mix(in srgb,var(--blue) 8%,transparent);border-color:var(--blue);color:var(--blue)}
 </style>
 </head>
 <body>
+
+<!-- ══ 로그인 오버레이 ══ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-title">HMS EEG 판독 보조 시스템</div>
+    <div class="login-sub">HMS-EEG-DEMO · 임상 시연용</div>
+    <div class="login-field">
+      <label>사용자 ID</label>
+      <input type="text" id="loginUser" placeholder="eeg_tech / resident / neurologist" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="login-field">
+      <label>비밀번호</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleLogin()">
+    </div>
+    <button class="login-btn" onclick="handleLogin()">로그인</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">
+      🔵 EEG 기사 &nbsp; eeg_tech / tech1234<br>
+      🟢 전공의 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; resident / res1234<br>
+      🟣 신경과의 &nbsp; neurologist / neuro1234
+    </div>
+  </div>
+</div>
+
+<!-- ══ 알람 패널 ══ -->
+<div class="alert-panel" id="alertPanel">
+  <div class="alert-panel-title">
+    🔔 미확인 알람 <span id="alertPanelCount" style="color:var(--red)"></span>
+  </div>
+  <div id="alertList"></div>
+</div>
 
 <div class="header">
   <div class="header-inner">
@@ -210,6 +284,16 @@ details[open] .about-chevron{transform:rotate(90deg)}
     <div class="hdr-right">
       <span class="live-dot" id="statusDot"></span>
       <span class="live-label" id="statusLabel">연결 중…</span>
+      <!-- 알람 뱃지 (neurologist만 표시) -->
+      <div class="alert-badge" id="alertBadge" style="display:none" onclick="toggleAlertPanel()">
+        🔔 알람 <span class="alert-count" id="alertCount">0</span>
+      </div>
+      <!-- 사용자 정보 -->
+      <div class="user-chip" id="userChip" style="display:none">
+        <span class="user-role" id="userRoleLabel"></span>
+        <span class="user-name" id="userNameLabel"></span>
+      </div>
+      <button class="logout-btn" id="logoutBtn" style="display:none" onclick="logout()">로그아웃</button>
     </div>
   </div>
 </div>
@@ -635,6 +719,170 @@ details[open] .about-chevron{transform:rotate(90deg)}
 </div>
 
 <script>
+/* ── 인증 토큰 헬퍼 ── */
+const TOKEN_KEY = 'hms_token';
+const USER_KEY  = 'hms_user';
+
+function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+}
+function saveToken(token, userInfo) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
+  } catch {}
+}
+function clearToken() {
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch {}
+}
+function getUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; }
+}
+function authHeader() {
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t } : {};
+}
+
+/* ── 로그인 UI ── */
+function showLoginOverlay() {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('userChip').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('alertBadge').style.display = 'none';
+}
+
+function hideLoginOverlay() {
+  document.getElementById('loginOverlay').style.display = 'none';
+}
+
+async function handleLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  if (!username || !password) { showLoginErr('아이디와 비밀번호를 입력하세요.'); return; }
+
+  try {
+    const form = new URLSearchParams();
+    form.append('username', username);
+    form.append('password', password);
+    const r = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const d = await r.json();
+    if (!r.ok) { showLoginErr(d.detail || '로그인 실패'); return; }
+
+    saveToken(d.access_token, { username, role: d.role, full_name: d.full_name });
+    hideLoginOverlay();
+    updateUserUI(d.role, d.full_name);
+    checkHealth();
+    if (d.role === 'neurologist') loadAlerts();
+  } catch(e) {
+    showLoginErr('서버 연결 실패: ' + e.message);
+  }
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('loginErr');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function logout() {
+  clearToken();
+  showLoginOverlay();
+  document.getElementById('alertPanel').style.display = 'none';
+}
+
+const ROLE_LABELS = { technician: 'EEG 기사', resident: '전공의', neurologist: '신경과의' };
+
+function updateUserUI(role, fullName) {
+  document.getElementById('userRoleLabel').textContent = ROLE_LABELS[role] || role;
+  document.getElementById('userNameLabel').textContent = fullName;
+  document.getElementById('userChip').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = '';
+  if (role === 'neurologist') {
+    document.getElementById('alertBadge').style.display = 'flex';
+  }
+}
+
+/* ── 알람 패널 ── */
+function toggleAlertPanel() {
+  const panel = document.getElementById('alertPanel');
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    loadAlerts(true);
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function loadAlerts(show = false) {
+  const user = getUser();
+  if (!user || user.role !== 'neurologist') return;
+  try {
+    const r = await fetch('/alerts?unread_only=true&limit=20', { headers: authHeader() });
+    if (!r.ok) return;
+    const d = await r.json();
+    const alerts = d.alerts || [];
+    const countEl = document.getElementById('alertCount');
+    const badgeEl = document.getElementById('alertBadge');
+    if (alerts.length > 0) {
+      countEl.textContent = alerts.length;
+      countEl.style.display = 'inline-block';
+    } else {
+      countEl.style.display = 'none';
+    }
+    if (show) {
+      renderAlerts(alerts);
+      document.getElementById('alertPanel').style.display = 'block';
+      document.getElementById('alertPanelCount').textContent = alerts.length ? `(${alerts.length})` : '없음';
+    }
+  } catch {}
+}
+
+function renderAlerts(alerts) {
+  const list = document.getElementById('alertList');
+  if (alerts.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--fg-dim);padding:8px 0">미확인 알람 없음</div>';
+    return;
+  }
+  list.innerHTML = alerts.map(a => `
+    <div class="alert-item ${a.level}" id="alert-item-${a.id}">
+      <span class="alert-lvl ${a.level}">${a.level}</span>
+      <div class="alert-info">
+        <div class="alert-label">${a.emoji || ''} ${a.label}</div>
+        <div class="alert-meta">${a.filename} &nbsp;|&nbsp; 신뢰도 ${(a.confidence * 100).toFixed(1)}% &nbsp;|&nbsp; ${a.username}</div>
+      </div>
+      <button class="alert-ack-btn" onclick="ackAlert(${a.id})">확인</button>
+    </div>`).join('');
+}
+
+async function ackAlert(alertId) {
+  try {
+    const r = await fetch(`/alerts/${alertId}/ack`, { method: 'POST', headers: authHeader() });
+    if (r.ok) {
+      const item = document.getElementById(`alert-item-${alertId}`);
+      if (item) item.remove();
+      loadAlerts();
+    }
+  } catch {}
+}
+
+/* ── 초기화 ── */
+function initAuth() {
+  const user = getUser();
+  const token = getToken();
+  if (user && token) {
+    hideLoginOverlay();
+    updateUserUI(user.role, user.full_name);
+    if (user.role === 'neurologist') loadAlerts();
+  } else {
+    showLoginOverlay();
+  }
+}
+
 const CLASSES = ['seizure','lpd','gpd','lrda','grda','other'];
 const CLASS_COLORS = {seizure:'#f85149',lpd:'#e3b341',gpd:'#bc8cff',lrda:'#58a6ff',grda:'#2ecdcb',other:'#3fb950'};
 
@@ -709,10 +957,12 @@ async function analyzeFiles(files) {
       form.append('file', file);
       const resp = await fetch('/predict/eeg', {
         method: 'POST',
+        headers: authHeader(),
         body: form,
         signal: AbortSignal.timeout(120000),
       });
       const d = await resp.json();
+      if (resp.status === 401) { clearToken(); showLoginOverlay(); return; }
       if (!resp.ok) { showUploadErr((d.detail || 'HTTP ' + resp.status)); continue; }
       timelineResults.push(d);
     } catch(e) {
@@ -1002,8 +1252,11 @@ function rebuildCharts() {
 }
 
 rebuildCharts();
+initAuth();
 checkHealth();
 setInterval(checkHealth, 30000);
+// 알람 주기적 갱신 (신경과의 역할이면 30초마다)
+setInterval(() => { const u = getUser(); if (u?.role === 'neurologist') loadAlerts(); }, 30000);
 </script>
 </body>
 </html>

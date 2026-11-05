@@ -4,6 +4,13 @@ uvicorn[standard]==0.29.0
 pydantic==2.7.1
 aiofiles==23.2.1
 
+# 인증
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# 데이터베이스
+aiosqlite==0.20.0
+
 # 모델 추론
 lightgbm==4.3.0
 numpy==1.26.4

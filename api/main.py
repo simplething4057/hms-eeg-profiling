@@ -3,13 +3,34 @@ from __future__ import annotations
 
 import logging
 import os
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 
+from api.alerts import check_alert, log_alert
+from api.auth import (
+    DEMO_USERS,
+    Token,
+    TokenData,
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    require_permission,
+)
+from api.database import (
+    ack_alert,
+    get_alerts,
+    get_history,
+    init_db,
+    save_alert,
+    save_analysis,
+    save_audit,
+)
 from api.predict import ModelServer
 from api.schemas import (
     CLASSES,
@@ -26,19 +47,25 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("모델 서버 초기화 중…")
-    ModelServer.instance()   # 싱글턴 초기화 (DL + P1 로딩)
+    ModelServer.instance()
     logger.info(
         "모델 로드 완료 — DL=%s P1=%s",
         ModelServer.instance().dl_loaded,
         ModelServer.instance().p1_loaded,
     )
+    await init_db()
+    logger.info("데이터베이스 초기화 완료")
     yield
 
 
 app = FastAPI(
     title="HMS EEG 판독 보조 API",
-    version="1.0.0",
-    description="E8 앙상블 (E4+E5 딥러닝 × 0.85 + P1 LightGBM × 0.15) + R1b 추론 플래그",
+    version="1.1.0",
+    description=(
+        "E8 앙상블 (E4+E5 딥러닝 × 0.85 + P1 LightGBM × 0.15) + R1b 추론 플래그\n\n"
+        "**인증**: `/auth/login`에서 JWT 발급 후 Authorize 버튼에 토큰 입력\n\n"
+        "**시연 계정**: eeg_tech / tech1234 · resident / res1234 · neurologist / neuro1234"
+    ),
     lifespan=lifespan,
 )
 
@@ -50,16 +77,50 @@ app.add_middleware(
 )
 
 
+# ── 인증 ──────────────────────────────────────────────────────────
+
+@app.post("/auth/login", response_model=Token, tags=["auth"])
+async def login(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request,
+) -> Token:
+    """JWT 토큰 발급 (Swagger Authorize 버튼 연동)"""
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="아이디 또는 비밀번호가 올바르지 않습니다",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = create_access_token(user["username"], user["role"])
+    await save_audit(
+        user["username"], user["role"], "LOGIN",
+        ip=request.client.host if request.client else "",
+    )
+    return Token(
+        access_token=token,
+        role=user["role"],
+        full_name=user["full_name"],
+    )
+
+
+@app.get("/auth/me", tags=["auth"])
+async def me(user: Annotated[TokenData, Depends(get_current_user)]) -> dict:
+    """현재 로그인 사용자 정보"""
+    info = DEMO_USERS.get(user.username, {})
+    return {
+        "username": user.username,
+        "role": user.role,
+        "full_name": info.get("full_name", user.username),
+    }
+
+
 # ── 헬스체크 ──────────────────────────────────────────────────────
 
 @app.get("/health", tags=["system"])
 def health() -> dict:
     srv = ModelServer.instance()
-    return {
-        "status": "ok",
-        "dl_loaded": srv.dl_loaded,
-        "p1_loaded": srv.p1_loaded,
-    }
+    return {"status": "ok", "dl_loaded": srv.dl_loaded, "p1_loaded": srv.p1_loaded}
 
 
 # ── 모델 정보 ──────────────────────────────────────────────────────
@@ -68,7 +129,7 @@ def health() -> dict:
 def model_info() -> ModelInfoResponse:
     srv = ModelServer.instance()
     return ModelInfoResponse(
-        version="1.0.0",
+        version="1.1.0",
         recipe=srv.recipe,
         dl_loaded=srv.dl_loaded,
         p1_loaded=srv.p1_loaded,
@@ -77,10 +138,14 @@ def model_info() -> ModelInfoResponse:
     )
 
 
-# ── 예측 ──────────────────────────────────────────────────────────
+# ── 예측 (JSON 입력) ───────────────────────────────────────────────
 
 @app.post("/predict", response_model=PredictResponse, tags=["inference"])
-def predict(req: PredictRequest) -> PredictResponse:
+async def predict(
+    req: PredictRequest,
+    request: Request,
+    user: Annotated[TokenData, Depends(require_permission("upload"))],
+) -> PredictResponse:
     srv = ModelServer.instance()
     if not srv.p1_loaded:
         raise HTTPException(status_code=503, detail="모델 로딩 중입니다. 잠시 후 재시도하세요.")
@@ -98,12 +163,20 @@ def predict(req: PredictRequest) -> PredictResponse:
 
     prob = result["prob"]
     pred_idx = int(max(range(len(prob)), key=lambda i: prob[i]))
+    predicted_class = CLASSES[pred_idx]
+    confidence = round(prob[pred_idx], 4)
+
+    await save_audit(
+        user.username, user.role, "PREDICT_JSON",
+        detail=f"seg={req.segment_id} class={predicted_class}",
+        ip=request.client.host if request.client else "",
+    )
 
     return PredictResponse(
         segment_id=req.segment_id,
         probabilities=ClassProb.from_array(prob),
-        predicted_class=CLASSES[pred_idx],
-        confidence=round(prob[pred_idx], 4),
+        predicted_class=predicted_class,
+        confidence=confidence,
         r1b_flag=result["flag"],
         r1b_flag_reason=result["reason"],
         model_used=result["model_used"],
@@ -111,19 +184,30 @@ def predict(req: PredictRequest) -> PredictResponse:
     )
 
 
-# ── 배치 예측 ──────────────────────────────────────────────────────
-
 @app.post("/predict/batch", response_model=list[PredictResponse], tags=["inference"])
-def predict_batch(requests: list[PredictRequest]) -> list[PredictResponse]:
-    if len(requests) > 64:
+async def predict_batch(
+    requests_body: list[PredictRequest],
+    request: Request,
+    user: Annotated[TokenData, Depends(require_permission("upload"))],
+) -> list[PredictResponse]:
+    if len(requests_body) > 64:
         raise HTTPException(status_code=400, detail="배치 최대 64개")
-    return [predict(r) for r in requests]
+    await save_audit(
+        user.username, user.role, "PREDICT_BATCH",
+        detail=f"n={len(requests_body)}",
+        ip=request.client.host if request.client else "",
+    )
+    return [await predict(r, request, user) for r in requests_body]
 
 
 # ── 파일 업로드 추론 ────────────────────────────────────────────────
 
 @app.post("/predict/eeg", tags=["inference"])
-async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
+async def predict_eeg_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    user: Annotated[TokenData, Depends(require_permission("upload"))] = None,
+) -> dict:
     """EEG parquet 파일 업로드 → 슬라이딩 윈도우 E8 앙상블 추론.
 
     파이프라인: 더블 바나나 몽타주 → QC → 보간/필터 → 50초 창 슬라이딩 스캔 → 최선 창 E8 추론
@@ -204,21 +288,50 @@ async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
         })
     except Exception as e:
         logger.exception("최선 창 E8 추론 오류")
-        final_result = {
-            "flag": window_results[best_idx]["r1b_flag"],
-            "reason": window_results[best_idx]["r1b_flag_reason"],
-            "model_used": window_results[best_idx]["model_used"],
-            "ms": window_results[best_idx]["processing_ms"],
-        }
 
     best_wr = window_results[best_idx]
+    predicted_class = best_wr["predicted_class"]
+    confidence = best_wr["confidence"]
+
+    # ── 4단계: 분석 결과 저장 & 감사 로그 ───────────────────────────
+    analysis_id = await save_analysis({
+        "username": user.username,
+        "filename": file.filename,
+        "duration_sec": file_meta.get("duration_sec"),
+        "n_windows": file_meta.get("n_windows", 1),
+        "predicted_class": predicted_class,
+        "confidence": confidence,
+        "probabilities": best_wr["probabilities"],
+        "r1b_flag": best_wr["r1b_flag"],
+        "model_used": best_wr["model_used"],
+        "processing_ms": best_wr["processing_ms"],
+        "scan_mode": file_meta["n_windows"] > 1,
+    })
+
+    await save_audit(
+        user.username, user.role, "PREDICT_EEG",
+        detail=f"file={file.filename} class={predicted_class} conf={confidence:.3f} id={analysis_id}",
+        ip=request.client.host if request.client else "",
+    )
+
+    # ── 5단계: 알람 판정 & 저장 ──────────────────────────────────────
+    alert_info = check_alert(predicted_class, confidence)
+    if alert_info:
+        log_alert(alert_info, file.filename or "", user.username)
+        await save_alert(analysis_id, {
+            "username": user.username,
+            "filename": file.filename,
+            "alert_level": alert_info["alert_level"],
+            "predicted_class": predicted_class,
+            "confidence": confidence,
+        })
 
     return {
         # 기존 단일 결과 필드 (최선 창 기준, backward compat)
         "segment_id": file.filename,
-        "predicted_class": best_wr["predicted_class"],
+        "predicted_class": predicted_class,
         "probabilities": best_wr["probabilities"],
-        "confidence": best_wr["confidence"],
+        "confidence": confidence,
         "r1b_flag": best_wr["r1b_flag"],
         "r1b_flag_reason": best_wr["r1b_flag_reason"],
         "model_used": best_wr["model_used"],
@@ -229,7 +342,63 @@ async def predict_eeg_upload(file: UploadFile = File(...)) -> dict:
         "windows": window_results,
         "best_window_idx": best_idx,
         "scan_mode": file_meta["n_windows"] > 1,
+        # 신규: 분석 ID & 알람
+        "analysis_id": analysis_id,
+        "alert": alert_info,
     }
+
+
+# ── 알람 조회 & 확인 ──────────────────────────────────────────────
+
+@app.get("/alerts", tags=["alerts"])
+async def list_alerts(
+    unread_only: bool = False,
+    limit: int = 100,
+    user: Annotated[TokenData, Depends(require_permission("view_alerts"))] = None,
+) -> dict:
+    """미확인 / 전체 알람 목록 조회 (전문의 권한 필요)"""
+    alerts = await get_alerts(unread_only=unread_only, limit=limit)
+    return {"alerts": alerts, "total": len(alerts)}
+
+
+@app.post("/alerts/{alert_id}/ack", tags=["alerts"])
+async def acknowledge_alert(
+    alert_id: int,
+    request: Request,
+    user: Annotated[TokenData, Depends(require_permission("ack_alert"))] = None,
+) -> dict:
+    """알람 확인 처리 (전문의 권한 필요)"""
+    ok = await ack_alert(alert_id, user.username)
+    if not ok:
+        raise HTTPException(status_code=404, detail="알람을 찾을 수 없거나 이미 확인된 알람입니다")
+    await save_audit(
+        user.username, user.role, "ACK_ALERT",
+        detail=f"alert_id={alert_id}",
+        ip=request.client.host if request.client else "",
+    )
+    return {"ok": True, "alert_id": alert_id, "ack_by": user.username}
+
+
+# ── 분석 이력 조회 ────────────────────────────────────────────────
+
+@app.get("/history", tags=["history"])
+async def analysis_history(
+    limit: int = 50,
+    user: Annotated[TokenData, Depends(require_permission("view_history"))] = None,
+) -> dict:
+    """분석 이력 조회 (레지던트 이상 권한 필요)"""
+    records = await get_history(limit=limit)
+    return {"records": records, "total": len(records)}
+
+
+@app.get("/history/me", tags=["history"])
+async def my_history(
+    limit: int = 50,
+    user: Annotated[TokenData, Depends(require_permission("view_own"))] = None,
+) -> dict:
+    """내 분석 이력 조회"""
+    records = await get_history(username=user.username, limit=limit)
+    return {"records": records, "total": len(records)}
 
 
 # ── 대시보드 UI (StaticFiles — 마지막에 마운트) ───────────────────
