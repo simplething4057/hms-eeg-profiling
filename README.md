@@ -13,17 +13,64 @@
 
 > EC2 (us-east-1) · Python 3.9 · LightGBM 5-fold · systemd · Elastic IP 고정
 
-## 7일 압축 일정 진행 현황
+## 구현 현황
 
-| 일차 | 내용 | 상태 |
-|---|---|---|
-| D1 | 데이터 탐색, 기준율 분석, 전처리 파이프라인 | ✅ 완료 |
-| D2 | FastAPI 추론 레이어 (E8 앙상블 · R1b 플래그) | ✅ 완료 |
-| D3 | AWS ECR + EC2 배포 자동화 | ✅ 완료 |
-| D4 | 시각화 대시보드 (5탭) + 실시간 예측 UI 연동 | ✅ 완료 |
-| D5 | ADD 분석 + GitHub Actions CI | ✅ 완료 |
-| D6 | 통합 테스트 (3/3 PASS) | ✅ 완료 |
-| D7 | JWT 인증 · RBAC · 감사로그 · 알람 · EC2 재배포 | ✅ 완료 |
+### ML 파이프라인
+| 항목 | 구현 내용 |
+|---|---|
+| 전처리 | 더블 바나나 몽타주 → 결측 보간 → 0.5~20Hz 대역 통과 필터 → 50초 슬라이딩 윈도우 |
+| 신호 품질 | 결측 · 평탄 신호 · 과도 진폭 자동 검출 (signal_qc) |
+| 프로파일 지표 | 주파수 구성 · 편측성 · 국소성 · 주기성 · 율동성 · 시간 변화 · 배경 활동 (67차원) |
+| 모델 | P1 LightGBM 5-fold (EC2 배포) + E4/E5 EfficientNet-B0 5-fold × 2 (로컬) |
+| 앙상블 | E8: 0.85 × DL_mean + 0.15 × P1 (DL 없으면 P1 단독) |
+| 추론 플래그 | R1b: 저확신(p_max < 0.47) 또는 편측·율동 근거 불일치 시 전문의 우선 확인 플래그 |
+| 단위 테스트 | pytest 5개 파일 (targets / montage / folds / metrics / reasoning) |
+
+### API 서버
+| 엔드포인트 | 설명 |
+|---|---|
+| `POST /auth/login` | JWT 토큰 발급 (OAuth2PasswordBearer) |
+| `GET /auth/me` | 현재 로그인 사용자 정보 |
+| `POST /predict/eeg` | parquet 파일 업로드 → 슬라이딩 윈도우 E8 추론 |
+| `POST /predict` | JSON qEEG 피처 → 단일 추론 |
+| `POST /predict/batch` | 최대 64건 배치 추론 |
+| `GET /alerts` | 알람 목록 조회 (전문의 권한) |
+| `POST /alerts/{id}/ack` | 알람 확인 처리 (전문의 권한) |
+| `GET /history` | 전체 분석 이력 (레지던트 이상) |
+| `GET /history/me` | 내 분석 이력 |
+| `GET /model/info` | 현재 모델 버전·레시피 |
+| `GET /health` | 서버·모델 로드 상태 |
+
+### 인증 · 보안
+| 항목 | 구현 내용 |
+|---|---|
+| JWT | python-jose HS256, 2시간 만료 |
+| RBAC | 역할 3단계 — technician / resident / neurologist |
+| 감사 로그 | 모든 API 호출을 audit_logs 테이블에 기록 (사용자 · 역할 · IP · 액션) |
+| 비밀번호 | bcrypt 해시 (passlib) |
+
+### 데이터베이스
+| 테이블 | 목적 |
+|---|---|
+| `analysis_records` | 파일별 추론 결과 전체 저장 |
+| `audit_logs` | 로그인·예측·알람 확인 등 모든 행위 기록 |
+| `alerts` | CRITICAL/HIGH/MEDIUM 알람 발생 및 확인 이력 |
+
+### 프론트엔드
+| 항목 | 구현 내용 |
+|---|---|
+| 로그인 UI | 오버레이 모달, JWT 토큰 localStorage 관리 |
+| 대시보드 | 성능 지표 · 실험 이력 · 클래스별 KL · 추론 플래그 분석 5탭 |
+| 파일 추론 | parquet 업로드 → 슬라이딩 윈도우 결과 · 스펙트로그램 시각화 |
+| 알람 패널 | 미확인 알람 뱃지 · 패널 · 전문의 ACK 버튼 |
+| 헬스 모니터 | 30초 주기 서버 상태 자동 갱신 |
+
+### 인프라
+| 항목 | 구현 내용 |
+|---|---|
+| EC2 | AWS us-east-1 · Python 3.9 · systemd 자동 시작 |
+| IP 고정 | Elastic IP 52.0.94.15 |
+| CI/CD | GitHub Actions — ruff lint → pytest → schema check → Docker build 검증 |
 
 ## 최종 성능 요약
 
