@@ -1,4 +1,3 @@
-from __future__ import annotations
 """원시 EEG parquet → E8 추론 파이프라인
 
 입력: parquet 파일 (전극 컬럼: Fp1, F7, T3, T5, O1, Fp2, F8, T4, T6, O2, F3, C3, P3, F4, C4, P4 등)

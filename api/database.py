@@ -1,4 +1,3 @@
-from __future__ import annotations
 """SQLite 비동기 DB — 분석 결과 / 감사 로그 / 알람 저장
 포트폴리오 목적: SQLite + aiosqlite (별도 서버 불필요)
 실제 임상: PostgreSQL + append-only 감사 테이블로 교체

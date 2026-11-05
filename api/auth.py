@@ -1,4 +1,3 @@
-from __future__ import annotations
 """인증 & RBAC — 시연용 하드코딩 계정 3개
 실제 임상 환경에서는 이 부분을 병원 LDAP / AD SSO로 교체
 """
