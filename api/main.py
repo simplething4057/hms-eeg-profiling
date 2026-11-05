@@ -33,9 +33,11 @@ from api.database import (
     save_audit,
 )
 from api.predict import ModelServer
+from api.report import generate_report
 from api.schemas import (
     CLASSES,
     ClassProb,
+    ClinicalReport,
     ModelInfoResponse,
     PredictRequest,
     PredictResponse,
@@ -178,6 +180,18 @@ async def predict(
         ip=request.client.host if request.client else "",
     )
 
+    clinical_report = None
+    if req.include_report:
+        report_dict = generate_report(
+            segment_id=req.segment_id,
+            prob=prob,
+            predicted_class=predicted_class,
+            flag=result["flag"],
+            flag_reason=result["reason"],
+            model_used=result["model_used"],
+        )
+        clinical_report = ClinicalReport(**report_dict)
+
     return PredictResponse(
         segment_id=req.segment_id,
         probabilities=ClassProb.from_array(prob),
@@ -187,6 +201,7 @@ async def predict(
         r1b_flag_reason=result["reason"],
         model_used=result["model_used"],
         processing_ms=round(result["ms"], 1),
+        clinical_report=clinical_report,
     )
 
 
