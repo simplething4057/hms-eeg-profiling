@@ -1,3 +1,4 @@
+from __future__ import annotations
 """알람 설정 — 클래스별 긴급도 및 임계값
 포트폴리오 시연: DB 저장 + /alerts 엔드포인트
 실제 임상: SMS / 앱 푸시 / 페이저 연동으로 교체

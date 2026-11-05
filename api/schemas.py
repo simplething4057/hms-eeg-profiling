@@ -1,4 +1,6 @@
 """API 입출력 스키마"""
+from __future__ import annotations
+from typing import Optional
 from pydantic import BaseModel, Field
 
 CLASSES = ["seizure", "lpd", "gpd", "lrda", "grda", "other"]
@@ -12,7 +14,7 @@ class PredictRequest(BaseModel):
     )
     # base64 encoded float32 bytes — shape (400, 556), row-major
     # None이면 P1 단독 추론
-    spectrogram_b64: str | None = Field(
+    spectrogram_b64: Optional[str] = Field(
         None, description="400×556 float32 스펙트로그램 (base64). None이면 P1 단독 추론"
     )
 

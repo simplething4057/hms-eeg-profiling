@@ -7,6 +7,7 @@ aiofiles==23.2.1
 # 인증
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 
 # 데이터베이스
 aiosqlite==0.20.0

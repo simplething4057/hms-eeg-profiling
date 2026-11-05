@@ -1,3 +1,4 @@
+from __future__ import annotations
 """E8 앙상블 추론 엔진 — 싱글턴 ModelServer + 배치 지원
 
 구조:

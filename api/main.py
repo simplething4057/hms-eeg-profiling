@@ -1,3 +1,4 @@
+from __future__ import annotations
 """HMS EEG 판독 보조 API — FastAPI 진입점"""
 from __future__ import annotations
 
