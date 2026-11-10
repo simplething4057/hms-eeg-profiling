@@ -4,6 +4,7 @@
 - 플래그(전문의 우선 확인)의 주 조건 = 저확신 (최고 확률 < p_low, 학습 fold 고득표 하위 20%)
 - 근거 불일치는 오류 탐지가 아니라 '어느 판단을 재확인할지' 알려주는 보조 문구 (편측 2.60배, 율동 2.05배)
 - 시간 변화(Seizure) 근거는 판별력이 확인되지 않아 참고 정보로만 표시
+- p_low 기본값 = 0.47 (nb06 R1b, api/predict.py P_LOW 및 UI 경고 임계값과 일치)
 """
 import numpy as np
 
@@ -20,7 +21,10 @@ RECHECK = {"lateral": "편측·전반 판단 재확인", "rhythmic": "율동성(
 INFO_ONLY = {"seizure"}                     # 플래그·재확인에 쓰지 않는 참고 축
 
 
-def confidence(p_max, recheck, p_low=0.4):
+P_LOW = 0.47  # nb06 R1b: 학습 fold 고득표 최고 확률 하위 20% (api/predict.py 및 UI 경고와 동일)
+
+
+def confidence(p_max, recheck, p_low=P_LOW):
     if p_max < p_low:
         return "낮음"
     if p_max >= 0.6 and not recheck:
@@ -28,7 +32,7 @@ def confidence(p_max, recheck, p_low=0.4):
     return "중간"
 
 
-def make_report(feat, prob, thr, status=None, p_low=0.4):
+def make_report(feat, prob, thr, status=None, p_low=P_LOW):
     """feat : 한 구간의 지표(dict 또는 Series), prob : 6클래스 확률, thr : 임계값,
     p_low : 저확신 기준 (nb06 R1b : 학습 fold 고득표 최고 확률 하위 20%, 약 0.47). status는 이전 호출 호환용(사용 안 함)."""
     prob = np.asarray(prob, float)

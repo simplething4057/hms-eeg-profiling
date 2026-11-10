@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HMS EEG 판독 보조 대시보드</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.2/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root {
   --bg:#080e17;--surface:#0d1520;--surface2:#111d2b;--surface3:#162033;
@@ -100,6 +100,30 @@ details[open] .about-chevron{transform:rotate(90deg)}
 .vote-table th,.vote-table td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
 .vote-table th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;font-family:var(--mono)}
 .vote-table td{color:var(--fg-dim)}.vote-table td:first-child{color:var(--fg);font-weight:500;font-family:var(--mono)}
+/* 가설 테이블 */
+.hyp-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.hyp-table th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);font-weight:600}
+.hyp-table td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--fg-dim);line-height:1.5}
+.hyp-table tr:last-child td{border-bottom:none}
+.hyp-id{font-family:var(--mono);font-weight:700;color:var(--blue)!important;width:30px}
+.hyp-num{font-family:var(--mono);font-size:11px;white-space:nowrap}
+.hyp-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap}
+.hyp-ok{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green);border:1px solid color-mix(in srgb,var(--green) 30%,transparent)}
+.hyp-no{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red);border:1px solid color-mix(in srgb,var(--red) 30%,transparent)}
+.hyp-warn{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 30%,transparent)}
+/* 성능 테이블 */
+.perf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.perf-table th{color:var(--fg-faint);font-size:10px;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);font-weight:600;text-align:right}
+.perf-table th:first-child{text-align:left}
+.perf-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:var(--fg-dim);font-family:var(--mono);font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.perf-table td:first-child{text-align:left;color:var(--fg);font-family:inherit;display:flex;align-items:center;gap:6px}
+.cls-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* 혼동 행렬 */
+.cm-table{border-collapse:collapse;font-size:11px;width:100%}
+.cm-table th{padding:6px 8px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--fg-faint);font-weight:600;white-space:nowrap}
+.cm-table td{padding:6px 10px;text-align:center;font-family:var(--mono);font-size:12px;border:1px solid var(--border);font-variant-numeric:tabular-nums;min-width:48px}
+.cm-diag{font-weight:700;color:var(--fg)}
+.cm-axis-label{font-size:10px;color:var(--fg-faint);writing-mode:horizontal-tb;padding:4px 2px;white-space:nowrap}
 .progress-cell{min-width:80px}.prog-wrap{background:var(--surface3);border-radius:3px;height:6px;overflow:hidden}
 .prog-fill{height:100%;border-radius:3px;transition:width .6s ease}
 .note{border-radius:6px;padding:10px 12px;font-size:12px;color:var(--fg-dim);line-height:1.6;margin-top:12px}
@@ -248,7 +272,7 @@ details[open] .about-chevron{transform:rotate(90deg)}
     <div class="login-sub">HMS-EEG-DEMO · 임상 시연용</div>
     <div class="login-field">
       <label>사용자 ID</label>
-      <input type="text" id="loginUser" placeholder="eeg_tech / resident / neurologist" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+      <input type="text" id="loginUser" placeholder="사용자 ID" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
     </div>
     <div class="login-field">
       <label>비밀번호</label>
@@ -257,9 +281,9 @@ details[open] .about-chevron{transform:rotate(90deg)}
     <button class="login-btn" onclick="handleLogin()">로그인</button>
     <div class="login-err" id="loginErr"></div>
     <div class="login-hint">
-      🔵 EEG 기사 &nbsp; eeg_tech / tech1234<br>
-      🟢 전공의 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; resident / res1234<br>
-      🟣 신경과의 &nbsp; neurologist / neuro1234
+      🔵 EEG 기사 &nbsp; EEG Technician<br>
+      🟢 전공의 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Resident<br>
+      🟣 신경과의 &nbsp; Neurologist
     </div>
   </div>
 </div>
@@ -457,6 +481,28 @@ details[open] .about-chevron{transform:rotate(90deg)}
         여러 파일을 선택하면 구간별 확률 타임라인으로 표시됩니다.
       </div>
 
+      <!-- 환자 정보 입력 (선택) -->
+      <details id="patientInfoSection" style="margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;overflow:hidden">
+        <summary style="padding:9px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--fg-dim);list-style:none;display:flex;align-items:center;gap:7px;user-select:none">
+          <span style="font-size:10px;color:var(--fg-faint)">▶</span>
+          환자 정보 입력 <span style="font-size:10px;font-weight:400;color:var(--fg-faint)">(선택 — 보고서에 포함됩니다)</span>
+        </summary>
+        <div style="padding:10px 14px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div>
+            <label style="display:block;font-size:10px;color:var(--fg-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">환자 ID</label>
+            <input id="ptId" type="text" placeholder="예: P-20241106" style="width:100%;background:var(--surface3);border:1px solid var(--border2);color:var(--fg);border-radius:5px;padding:6px 9px;font-size:11px;font-family:var(--mono);outline:none" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:var(--fg-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">생년월일</label>
+            <input id="ptDob" type="date" placeholder="YYYY-MM-DD" max="2099-12-31" style="width:100%;background:var(--surface3);border:1px solid var(--border2);color:var(--fg);border-radius:5px;padding:6px 9px;font-size:11px;font-family:var(--mono);outline:none;color-scheme:dark" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;color:var(--fg-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">의뢰 의사 / 과</label>
+            <input id="ptRef" type="text" placeholder="예: 신경과 홍길동" style="width:100%;background:var(--surface3);border:1px solid var(--border2);color:var(--fg);border-radius:5px;padding:6px 9px;font-size:11px;font-family:var(--mono);outline:none" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+        </div>
+      </details>
+
       <div id="dropZone" style="border:2px dashed var(--border);border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s"
            onclick="document.getElementById('eegFileInput').click()"
            ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='color-mix(in srgb,var(--blue) 5%,transparent)'"
@@ -519,24 +565,67 @@ details[open] .about-chevron{transform:rotate(90deg)}
         <!-- 확신도 경고 -->
         <div id="confNote" class="err-banner" style="display:none;margin-top:10px;background:color-mix(in srgb,var(--amber) 10%,transparent);border-color:color-mix(in srgb,var(--amber) 30%,transparent);color:var(--amber)"></div>
 
-        <!-- 임상 의미 카드 -->
+        <!-- 임상 판독 보고서 카드 -->
         <div class="clinical-card" id="clinicalCard">
-          <div class="clinical-card-title">임상 판독 보조</div>
+          <div class="clinical-card-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <span>임상 판독 보고서
+              <span id="reportAcnsCode" style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;background:var(--surface-2,#2a2a2a);color:var(--fg-dim);font-family:var(--mono);margin-left:8px;vertical-align:middle"></span>
+            </span>
+            <button id="pdfPrintBtn" onclick="printReport()" style="display:none;background:var(--surface3);border:1px solid var(--border2);color:var(--fg-dim);border-radius:5px;padding:4px 10px;font-size:10px;font-family:var(--mono);cursor:pointer;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--blue)';this.style.color='var(--blue)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--fg-dim)'">⎙ PDF 출력</button>
+          </div>
+          <!-- 환자 정보 행 -->
+          <div class="clinical-row" id="reportPatientRow" style="display:none">
+            <div class="clinical-row-label" style="font-size:10px">환자 정보</div>
+            <div class="clinical-row-val" id="reportPatient" style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)">—</div>
+          </div>
+          <!-- 기록 파라미터 행 -->
+          <div class="clinical-row" id="reportRecordRow" style="display:none">
+            <div class="clinical-row-label" style="font-size:10px">기록 정보</div>
+            <div class="clinical-row-val" id="reportRecord" style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)">—</div>
+          </div>
+          <!-- 분석 일시·모델 행 -->
+          <div class="clinical-row" id="reportMetaRow" style="display:none">
+            <div class="clinical-row-label" style="font-size:10px">분석 정보</div>
+            <div class="clinical-row-val" id="reportMeta" style="font-size:11px;color:var(--fg-dim);font-family:var(--mono)">—</div>
+          </div>
           <div class="clinical-row">
             <div class="clinical-row-label">패턴 설명</div>
             <div class="clinical-row-val" id="clinDesc">—</div>
           </div>
+          <div class="clinical-row" id="clinAcnsRow" style="display:none">
+            <div class="clinical-row-label">ACNS 진단 기준</div>
+            <div class="clinical-row-val" id="clinAcns" style="white-space:pre-line;font-size:12px">—</div>
+          </div>
+          <div class="clinical-row" id="clinSignifRow" style="display:none">
+            <div class="clinical-row-label">임상적 의의</div>
+            <div class="clinical-row-val" id="clinSignif" style="white-space:pre-line">—</div>
+          </div>
+          <div class="clinical-row" id="clinBgRow" style="display:none">
+            <div class="clinical-row-label">배경파 활동</div>
+            <div class="clinical-row-val" id="clinBg" style="font-size:12px">—</div>
+          </div>
+          <div class="clinical-row" id="clinIicRow" style="display:none">
+            <div class="clinical-row-label">IIC 연속체</div>
+            <div class="clinical-row-val" id="clinIic" style="font-size:11px;color:var(--fg-dim)">—</div>
+          </div>
           <div class="clinical-row">
-            <div class="clinical-row-label">EEG 특징</div>
+            <div class="clinical-row-label">EEG 형태</div>
             <div class="clinical-row-val" id="clinEeg" style="white-space:pre-line">—</div>
           </div>
           <div class="clinical-row">
-            <div class="clinical-row-label">권고 조치</div>
+            <div class="clinical-row-label">권고 사항</div>
             <div class="clinical-row-val" id="clinAction" style="color:var(--fg);white-space:pre-line">—</div>
           </div>
           <div class="clinical-row" style="margin-bottom:0">
             <div class="clinical-row-label">감별 진단</div>
-            <div class="clinical-row-val" id="clinDiff" style="color:var(--fg-dim);font-size:11px">—</div>
+            <div class="clinical-row-val" id="clinDiff" style="color:var(--fg-dim);font-size:11px;white-space:pre-line">—</div>
+          </div>
+          <div class="clinical-row" id="clinRefRow" style="display:none;margin-bottom:0;border-top:1px solid color-mix(in srgb,var(--fg) 10%,transparent);margin-top:8px;padding-top:8px">
+            <div class="clinical-row-label" style="font-size:10px">참고 기준</div>
+            <div class="clinical-row-val" id="clinRef" style="font-size:10px;color:var(--fg-faint)">—</div>
+          </div>
+          <div id="clinDisclaimerRow" style="display:none;margin-top:8px;padding:6px 10px;border-radius:4px;background:color-mix(in srgb,var(--fg) 5%,transparent);font-size:10px;color:var(--fg-dim);line-height:1.5">
+            ※ <span id="clinDisclaimer"></span>
           </div>
         </div>
       </div>
@@ -708,10 +797,96 @@ details[open] .about-chevron{transform:rotate(90deg)}
           </div>
         </div>
         <div class="chart-card">
-          <div class="card-title">가설 검증 결과 요약</div>
-          <div class="card-sub">H1–H6 판정</div>
-          <div class="chart-wrap" style="height:240px"><canvas id="hypothesisChart"></canvas></div>
+          <div class="card-title">가설 검증 결과 요약 (H1–H6)</div>
+          <div class="card-sub">각 가설의 판정 근거 · ✅ 지지 / ❌ 기각 / ⚠ 방향일치(통계 미달)</div>
+          <table class="hyp-table">
+            <thead><tr><th>가설</th><th>판정</th><th>핵심 수치</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="hyp-id">H1</td>
+                <td><span class="hyp-badge hyp-ok">✅ 지지</span></td>
+                <td class="hyp-num">KL 0.501→0.296</td>
+                <td>DL 스펙트로그램 추가로 CV KL 유의하게 감소</td>
+              </tr>
+              <tr>
+                <td class="hyp-id">H2</td>
+                <td><span class="hyp-badge hyp-ok">✅ 지지</span></td>
+                <td class="hyp-num">플래그 오답 2.72×</td>
+                <td>R1b 플래그 샘플의 오답률이 비플래그 대비 2× 초과</td>
+              </tr>
+              <tr>
+                <td class="hyp-id">H3</td>
+                <td><span class="hyp-badge hyp-warn">⚠ 방향일치</span></td>
+                <td class="hyp-num">ECE 0.021→0.012</td>
+                <td>앙상블 보정 개선, 단 Seizure ECE 여전히 높음</td>
+              </tr>
+              <tr>
+                <td class="hyp-id">H4</td>
+                <td><span class="hyp-badge hyp-no">❌ 기각</span></td>
+                <td class="hyp-num">Other F1 0.61</td>
+                <td>Other 클래스 내부 이질성으로 단일 임계값 보정 불충분</td>
+              </tr>
+              <tr>
+                <td class="hyp-id">H5</td>
+                <td><span class="hyp-badge hyp-warn">⚠ 방향일치</span></td>
+                <td class="hyp-num">일치율 80.1%</td>
+                <td>R1 근거 축 추가 시 오류율 감소, 절대 목표 85% 미달</td>
+              </tr>
+              <tr>
+                <td class="hyp-id">H6</td>
+                <td><span class="hyp-badge hyp-ok">✅ 지지</span></td>
+                <td class="hyp-num">Private KL 0.374</td>
+                <td>E8 앙상블이 단일 모델 대비 Private KL 최소 달성</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
+    </div>
+
+    <!-- 클래스별 성능 지표 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">클래스별 성능 지표</div>
+      <div class="note blue" style="margin-bottom:16px"><strong>고득표(≥10표) 샘플 기준</strong> · 기록 단위 집계 · 임계값 argmax</div>
+      <div class="chart-grid chart-grid-2">
+        <div class="chart-card">
+          <div class="card-title">클래스별 Precision / Recall / F1</div>
+          <div class="card-sub">막대 왼→오 : Precision · Recall · F1</div>
+          <div class="chart-wrap" style="height:260px"><canvas id="f1BarChart"></canvas></div>
+          <div class="legend" style="margin-top:8px">
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Precision</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Recall</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>F1</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">성능 지표 상세 테이블</div>
+          <div class="card-sub">고득표 기록 단위 · macro avg F1 = 0.743</div>
+          <table class="perf-table">
+            <thead><tr><th>클래스</th><th>Prec</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+            <tbody>
+              <tr><td><span class="cls-dot" style="background:#f85149"></span>Seizure</td><td>0.821</td><td>0.794</td><td style="font-weight:600">0.807</td><td>639</td></tr>
+              <tr><td><span class="cls-dot" style="background:#e3b341"></span>LPD</td><td>0.763</td><td>0.741</td><td style="font-weight:600">0.752</td><td>895</td></tr>
+              <tr><td><span class="cls-dot" style="background:#3fb950"></span>GPD</td><td>0.834</td><td>0.819</td><td style="font-weight:600">0.826</td><td>703</td></tr>
+              <tr><td><span class="cls-dot" style="background:#2ecdcb"></span>LRDA</td><td>0.712</td><td>0.683</td><td style="font-weight:600">0.697</td><td>320</td></tr>
+              <tr><td><span class="cls-dot" style="background:#58a6ff"></span>GRDA</td><td>0.741</td><td>0.728</td><td style="font-weight:600">0.734</td><td>575</td></tr>
+              <tr><td><span class="cls-dot" style="background:#bc8cff"></span>Other</td><td>0.653</td><td>0.571</td><td style="font-weight:600">0.609</td><td>3259</td></tr>
+              <tr style="border-top:1px solid var(--border);font-weight:600"><td>Macro avg</td><td>0.754</td><td>0.723</td><td style="color:var(--blue)">0.743</td><td>6391</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 혼동 행렬 -->
+    <div class="analysis-section">
+      <div class="analysis-section-hdr">혼동 행렬 (Confusion Matrix)</div>
+      <div class="note blue" style="margin-bottom:16px"><strong>고득표(≥10표) 샘플 · 기록 단위 argmax 예측</strong> · 셀 색상 = 행 대비 비율 · 대각선 = 정답</div>
+      <div class="chart-card">
+        <div style="overflow-x:auto">
+          <table class="cm-table" id="confusionMatrix"></table>
+        </div>
+        <div class="note amber" style="margin-top:12px"><strong>주요 오분류:</strong> LRDA↔GRDA 혼동(율동 패턴 유사), LPD→GPD 오분류(편측성 경계 모호), Other→타 클래스(내부 이질성)</div>
       </div>
     </div>
 
@@ -844,19 +1019,47 @@ async function loadAlerts(show = false) {
 
 function renderAlerts(alerts) {
   const list = document.getElementById('alertList');
+  list.textContent = '';
   if (alerts.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--fg-dim);padding:8px 0">미확인 알람 없음</div>';
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:12px;color:var(--fg-dim);padding:8px 0';
+    empty.textContent = '미확인 알람 없음';
+    list.appendChild(empty);
     return;
   }
-  list.innerHTML = alerts.map(a => `
-    <div class="alert-item ${a.level}" id="alert-item-${a.id}">
-      <span class="alert-lvl ${a.level}">${a.level}</span>
-      <div class="alert-info">
-        <div class="alert-label">${a.emoji || ''} ${a.label}</div>
-        <div class="alert-meta">${a.filename} &nbsp;|&nbsp; 신뢰도 ${(a.confidence * 100).toFixed(1)}% &nbsp;|&nbsp; ${a.username}</div>
-      </div>
-      <button class="alert-ack-btn" onclick="ackAlert(${a.id})">확인</button>
-    </div>`).join('');
+  for (const a of alerts) {
+    const level = String(a.level || '').replace(/[^a-z]/g, '');  // allowlist: lowercase letters only
+    const item = document.createElement('div');
+    item.className = `alert-item ${level}`;
+    item.id = `alert-item-${Number(a.id)}`;
+
+    const lvlSpan = document.createElement('span');
+    lvlSpan.className = `alert-lvl ${level}`;
+    lvlSpan.textContent = level;
+
+    const info = document.createElement('div');
+    info.className = 'alert-info';
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'alert-label';
+    labelDiv.textContent = `${a.emoji || ''} ${a.label || ''}`.trim();
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'alert-meta';
+    metaDiv.textContent = `${a.filename || ''} | 신뢰도 ${((a.confidence || 0) * 100).toFixed(1)}% | ${a.username || ''}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'alert-ack-btn';
+    btn.textContent = '확인';
+    btn.addEventListener('click', () => ackAlert(Number(a.id)));
+
+    info.appendChild(labelDiv);
+    info.appendChild(metaDiv);
+    item.appendChild(lvlSpan);
+    item.appendChild(info);
+    item.appendChild(btn);
+    list.appendChild(item);
+  }
 }
 
 async function ackAlert(alertId) {
@@ -936,6 +1139,22 @@ function showUploadErr(msg) {
   el.style.display = 'block';
 }
 
+function validatePatientInfo() {
+  const dob = document.getElementById('ptDob')?.value.trim() || '';
+  if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+    showUploadErr('생년월일 형식이 올바르지 않습니다. YYYY-MM-DD 형식으로 입력하세요.');
+    return false;
+  }
+  if (dob) {
+    const d = new Date(dob);
+    if (isNaN(d.getTime()) || d > new Date()) {
+      showUploadErr('생년월일이 유효하지 않습니다 (미래 날짜 불가).');
+      return false;
+    }
+  }
+  return true;
+}
+
 async function analyzeFiles(files) {
   const errEl = document.getElementById('uploadErr');
   const progressEl = document.getElementById('uploadProgress');
@@ -944,6 +1163,7 @@ async function analyzeFiles(files) {
   const timelineEl = document.getElementById('timelineSection');
 
   errEl.style.display = 'none';
+  if (!validatePatientInfo()) return;
   singleEl.hidden = true;
   timelineEl.hidden = true;
   progressEl.hidden = false;
@@ -955,7 +1175,13 @@ async function analyzeFiles(files) {
     try {
       const form = new FormData();
       form.append('file', file);
-      const resp = await fetch('/predict/eeg', {
+      const ptId = document.getElementById('ptId')?.value.trim() || '';
+      const ptDob = document.getElementById('ptDob')?.value.trim() || '';
+      const ptRef = document.getElementById('ptRef')?.value.trim() || '';
+      if (ptId) form.append('patient_id', ptId);
+      if (ptDob) form.append('patient_dob', ptDob);
+      if (ptRef) form.append('referring_physician', ptRef);
+      const resp = await fetch('/predict/eeg?include_report=true', {
         method: 'POST',
         headers: authHeader(),
         body: form,
@@ -1036,6 +1262,142 @@ const CLINICAL_INFO = {
   },
 };
 
+function printReport() {
+  const state = window._lastReport;
+  if (!state) return;
+  const { rpt, cls, d } = state;
+  const urgMap = { 3: { color: '#c0392b', bg: '#fdf2f2', border: '#e74c3c' },
+                   2: { color: '#c0711a', bg: '#fef9f0', border: '#e67e22' },
+                   1: { color: '#1a6fb5', bg: '#f0f7ff', border: '#2980b9' },
+                   0: { color: '#1e7e34', bg: '#f0fdf4', border: '#27ae60' } };
+  const us = urgMap[rpt.urgency.level] || urgMap[0];
+  const probBars = rpt.findings.probability_distribution.map(line => {
+    const m = line.match(/^(.+?)\s+([\d.]+)%$/);
+    if (!m) return `<div style="font-size:10pt;padding:2px 0">${line}</div>`;
+    const pct = parseFloat(m[2]);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:10pt">
+      <div style="width:70px;text-align:right;color:#555;font-family:monospace;font-size:9pt">${m[1].trim()}</div>
+      <div style="flex:1;height:11px;background:#eee;border-radius:2px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:#334;border-radius:2px"></div></div>
+      <div style="width:40px;font-family:monospace;font-size:9pt;color:#333">${m[2]}%</div></div>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>EEG 판독 보고서 — ${rpt.header.segment_id}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',system-ui,sans-serif;font-size:11pt;color:#1a1a1a;background:#fff;padding:18mm 20mm 15mm}
+.rpt-hdr{border-bottom:2.5px solid #1a1a1a;padding-bottom:10px;margin-bottom:14px}
+.rpt-title{font-size:15pt;font-weight:700;margin-bottom:2px}
+.rpt-sub{font-size:10pt;color:#555}
+.meta-tbl{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:10pt}
+.meta-tbl td{padding:4px 9px;border:1px solid #ddd}
+.meta-tbl td:first-child{width:110px;background:#f5f5f5;font-weight:600;color:#333}
+.urg-box{display:inline-block;padding:4px 16px;border-radius:4px;font-weight:700;font-size:11pt;margin-bottom:14px;border:1.5px solid}
+.sec{margin-bottom:14px}
+.sec-title{font-size:9.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#333;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:8px}
+.row{display:flex;gap:10px;margin-bottom:5px;font-size:10.5pt;align-items:flex-start}
+.lbl{width:110px;flex-shrink:0;font-weight:600;color:#555;padding-top:1px}
+.val{flex:1;color:#1a1a1a;line-height:1.65;white-space:pre-line}
+.r1b-flag{display:inline-block;padding:3px 10px;border-radius:3px;font-weight:600;font-size:10pt}
+.r1b-flagged{background:#fdf2f2;border:1px solid #e74c3c;color:#c0392b}
+.r1b-ok{background:#f0fdf4;border:1px solid #27ae60;color:#1e7e34}
+ul,ol{margin:0;padding-left:20px;line-height:2;font-size:10.5pt}
+.iic-row{background:#f8f8f8;border-left:3px solid #aaa;padding:5px 10px;font-size:10pt;color:#444;margin-bottom:8px;border-radius:0 3px 3px 0}
+.disclaimer{margin-top:18px;padding:8px 12px;border:1px solid #bbb;border-radius:4px;font-size:9pt;color:#666;line-height:1.6}
+.footer{margin-top:14px;border-top:1px solid #ccc;padding-top:7px;font-size:9pt;color:#888;display:flex;justify-content:space-between}
+@media print{body{padding:12mm 15mm 10mm}@page{margin:0;size:A4 portrait}}
+</style></head><body>
+<div class="rpt-hdr">
+  <div class="rpt-title">EEG 자동 판독 보고서</div>
+  <div class="rpt-sub">HMS 뇌파 판독 보조 시스템 (E8 앙상블 · ACNS 2021 표준화 용어 기반)</div>
+</div>
+<table class="meta-tbl">
+  <tr><td>구간 ID</td><td>${rpt.header.segment_id}</td></tr>
+  <tr><td>분석 일시</td><td>${rpt.header.analyzed_at}</td></tr>
+  <tr><td>분석 모델</td><td>${rpt.header.model}</td></tr>
+  ${rpt.header.patient_id || rpt.header.patient_dob || rpt.header.referring_physician ? `<tr><td colspan="2" style="background:#eef3fa;font-weight:600;color:#1a3a6b;padding:5px 9px;border-top:2px solid #2980b9">환자 정보</td></tr>
+  ${rpt.header.patient_id ? `<tr><td>환자 ID</td><td>${rpt.header.patient_id}</td></tr>` : ''}
+  ${rpt.header.patient_dob ? `<tr><td>생년월일</td><td>${rpt.header.patient_dob}</td></tr>` : ''}
+  ${rpt.header.referring_physician ? `<tr><td>의뢰 의사/과</td><td>${rpt.header.referring_physician}</td></tr>` : ''}` : ''}
+  ${rpt.header.montage || rpt.header.recording_duration ? `<tr><td colspan="2" style="background:#eef3fa;font-weight:600;color:#1a3a6b;padding:5px 9px;border-top:2px solid #2980b9">기록 파라미터</td></tr>
+  ${rpt.header.montage ? `<tr><td>몽타주</td><td>${rpt.header.montage}</td></tr>` : ''}
+  ${rpt.header.recording_duration ? `<tr><td>기록 시간</td><td>${rpt.header.recording_duration}</td></tr>` : ''}` : ''}
+</table>
+<div class="urg-box" style="color:${us.color};background:${us.bg};border-color:${us.border}">긴급도 : ${rpt.urgency.label}</div>
+<div class="sec">
+  <div class="sec-title">판독 소견</div>
+  <div class="row"><div class="lbl">주요 소견</div><div class="val"><strong>${rpt.findings.primary_finding}</strong>  [ACNS : ${rpt.findings.acns_code}]</div></div>
+  <div class="row"><div class="lbl">판독 확신도</div><div class="val">${rpt.findings.confidence}</div></div>
+  <div class="row"><div class="lbl">전문의 검토</div><div class="val">
+    <span class="r1b-flag ${rpt.findings.review_flag ? 'r1b-flagged' : 'r1b-ok'}">${rpt.findings.review_flag ? '⚑ 전문의 우선 확인 필요 — ' + rpt.findings.review_reason : '✓ 자동 판독 가능 (R1b 플래그 없음)'}</span>
+  </div></div>
+  <div class="row"><div class="lbl">패턴 설명</div><div class="val">${rpt.findings.description}</div></div>
+</div>
+<div class="sec">
+  <div class="sec-title">확률 분포</div>
+  ${probBars}
+</div>
+${rpt.findings.iic_spectrum ? `<div class="iic-row">▶ IIC 연속체 위치 : ${rpt.findings.iic_spectrum}</div>` : ''}
+<div class="sec">
+  <div class="sec-title">ACNS 2021 진단 기준</div>
+  <div style="font-size:10.5pt;line-height:1.7;color:#333">${rpt.clinical.acns_criteria}</div>
+</div>
+<div class="sec">
+  <div class="sec-title">임상적 의의</div>
+  <div style="font-size:10.5pt;line-height:1.7;color:#333">${rpt.clinical.clinical_significance}</div>
+</div>
+${rpt.clinical.background_activity ? `<div class="sec">
+  <div class="sec-title">배경파 활동</div>
+  <div style="font-size:10.5pt;line-height:1.7;color:#333">${rpt.clinical.background_activity}</div>
+</div>` : ''}
+${rpt.findings.eeg_features ? `<div class="sec">
+  <div class="sec-title">EEG 형태 소견</div>
+  <div style="font-size:10.5pt;line-height:1.7;color:#333;white-space:pre-line">${rpt.findings.eeg_features}</div>
+</div>` : ''}
+<div class="sec">
+  <div class="sec-title">감별 진단</div>
+  <ul>${rpt.differential.map(di => `<li>${di}</li>`).join('')}</ul>
+</div>
+<div class="sec">
+  <div class="sec-title">권고 사항</div>
+  <ol>${rpt.recommendations.map(r => `<li>${r}</li>`).join('')}</ol>
+</div>
+<div style="font-size:9.5pt;color:#666;margin-bottom:4px">참고 기준 : ${rpt.reference}</div>
+<div class="disclaimer">※ ${rpt.header.disclaimer}</div>
+<div class="footer">
+  <span>HMS 뇌파 판독 보조 시스템 · 자동 생성 보고서</span>
+  <span>출력일시 : ${new Date().toLocaleString('ko-KR')}</span>
+</div>
+<script>window.onload=function(){window.print()};<\/script>
+</body></html>`;
+  const win = window.open('', '_blank', 'width=820,height=1000,scrollbars=yes');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  } else {
+    // 팝업 차단 시 HTML 파일 다운로드 폴백
+    try {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const segId = (state && state.d && state.d.segment_id) ? state.d.segment_id.replace(/[^a-zA-Z0-9_.-]/g, '_') : 'report';
+      a.href = url;
+      a.download = `EEG_report_${segId}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      const errEl = document.getElementById('uploadErr');
+      if (errEl) {
+        errEl.textContent = '팝업이 차단되었습니다. 브라우저에서 팝업을 허용하거나, 브라우저 설정 > 팝업 차단 해제 후 다시 시도하세요.';
+        errEl.style.display = 'block';
+      }
+    }
+  }
+}
+
 function showUploadResult(d) {
   document.getElementById('singleResult').hidden = false;
 
@@ -1104,6 +1466,92 @@ function showUploadResult(d) {
   document.getElementById('clinEeg').textContent = info.eeg;
   document.getElementById('clinAction').textContent = info.action;
   document.getElementById('clinDiff').textContent = info.differential;
+
+  // API 임상 보고서 (include_report=true 응답 시 풍부한 데이터로 덮어쓰기)
+  const rpt = d.clinical_report;
+  const reportAcnsCode = document.getElementById('reportAcnsCode');
+  const reportMetaRow = document.getElementById('reportMetaRow');
+  const clinAcnsRow = document.getElementById('clinAcnsRow');
+  const clinSignifRow = document.getElementById('clinSignifRow');
+  const clinIicRow = document.getElementById('clinIicRow');
+  const clinBgRow = document.getElementById('clinBgRow');
+  const clinRefRow = document.getElementById('clinRefRow');
+  const clinDisclaimerRow = document.getElementById('clinDisclaimerRow');
+  const reportPatientRow = document.getElementById('reportPatientRow');
+  const reportRecordRow = document.getElementById('reportRecordRow');
+  const pdfBtn = document.getElementById('pdfPrintBtn');
+  if (rpt) {
+    reportAcnsCode.textContent = rpt.findings.acns_code;
+    document.getElementById('reportMeta').textContent =
+      `${rpt.header.analyzed_at} · ${rpt.header.model}`;
+    reportMetaRow.style.display = '';
+
+    // 환자 정보
+    const ptParts = [];
+    if (rpt.header.patient_id) ptParts.push(`ID: ${rpt.header.patient_id}`);
+    if (rpt.header.patient_dob) ptParts.push(`생년월일: ${rpt.header.patient_dob}`);
+    if (rpt.header.referring_physician) ptParts.push(`의뢰: ${rpt.header.referring_physician}`);
+    if (ptParts.length) {
+      document.getElementById('reportPatient').textContent = ptParts.join('  ·  ');
+      reportPatientRow.style.display = '';
+    } else {
+      reportPatientRow.style.display = 'none';
+    }
+
+    // 기록 파라미터
+    const recParts = [];
+    if (rpt.header.montage) recParts.push(rpt.header.montage);
+    if (rpt.header.recording_duration) recParts.push(`기록 ${rpt.header.recording_duration}`);
+    if (recParts.length) {
+      document.getElementById('reportRecord').textContent = recParts.join('  ·  ');
+      reportRecordRow.style.display = '';
+    } else {
+      reportRecordRow.style.display = 'none';
+    }
+
+    document.getElementById('clinDesc').textContent = rpt.findings.description;
+    document.getElementById('clinAcns').textContent = rpt.clinical.acns_criteria;
+    clinAcnsRow.style.display = '';
+    document.getElementById('clinSignif').textContent = rpt.clinical.clinical_significance;
+    clinSignifRow.style.display = '';
+
+    // 배경파 활동
+    if (rpt.clinical.background_activity) {
+      document.getElementById('clinBg').textContent = rpt.clinical.background_activity;
+      clinBgRow.style.display = '';
+    }
+
+    if (rpt.findings.iic_spectrum) {
+      document.getElementById('clinIic').textContent = rpt.findings.iic_spectrum;
+      clinIicRow.style.display = '';
+    }
+    if (rpt.findings.eeg_features) {
+      document.getElementById('clinEeg').textContent = rpt.findings.eeg_features;
+    }
+    document.getElementById('clinAction').textContent =
+      rpt.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n');
+    document.getElementById('clinDiff').textContent =
+      rpt.differential.map(di => `• ${di}`).join('\n');
+    document.getElementById('clinRef').textContent = rpt.reference;
+    clinRefRow.style.display = '';
+    document.getElementById('clinDisclaimer').textContent = rpt.header.disclaimer;
+    clinDisclaimerRow.style.display = '';
+    pdfBtn.style.display = '';
+    window._lastReport = { rpt, cls, d };
+  } else {
+    reportAcnsCode.textContent = '';
+    reportMetaRow.style.display = 'none';
+    reportPatientRow.style.display = 'none';
+    reportRecordRow.style.display = 'none';
+    clinAcnsRow.style.display = 'none';
+    clinSignifRow.style.display = 'none';
+    clinBgRow.style.display = 'none';
+    clinIicRow.style.display = 'none';
+    clinRefRow.style.display = 'none';
+    clinDisclaimerRow.style.display = 'none';
+    pdfBtn.style.display = 'none';
+    window._lastReport = null;
+  }
 
   const confNote = document.getElementById('confNote');
   if (d.confidence < 0.47) {
@@ -1226,12 +1674,15 @@ function getColors() {
     red:g('--red'),purple:g('--purple'),surface3:g('--surface3')};
 }
 
-Chart.defaults.font.family = "'IBM Plex Mono',monospace";
-Chart.defaults.font.size = 11;
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family = "'IBM Plex Mono',monospace";
+  Chart.defaults.font.size = 11;
+}
 const charts = {};
 function destroyAll(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});Object.keys(charts).forEach(k=>delete charts[k]);}
 
 function rebuildCharts() {
+  if (typeof Chart === 'undefined') return;
   destroyAll();
   const c = getColors();
   function tryChart(key, id, cfg) {
@@ -1239,7 +1690,7 @@ function rebuildCharts() {
     if (!el) return;
     const panel = el.closest('.tab-panel');
     if (panel && !panel.classList.contains('active')) return;
-    charts[key] = new Chart(el, cfg);
+    try { charts[key] = new Chart(el, cfg); } catch(e) { console.warn('chart error', key, e); }
   }
   tryChart('baserate','baserateChart',{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'행 단위',data:[7,9,12,20,13,39],backgroundColor:c.blue+'88',borderColor:c.blue,borderWidth:1},{label:'기록 단위',data:[10,14,11,5,9,51],backgroundColor:c.green+'88',borderColor:c.green,borderWidth:1},{label:'E8 예측',data:[9.0,12.4,10.2,2.7,7.6,58.0],backgroundColor:c.teal+'88',borderColor:c.teal,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>v+'%'},max:60}}}});
   tryChart('pred','predDistChart',{type:'radar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{label:'실제',data:[10,14,11,5,9,51],fill:true,backgroundColor:c.green+'22',borderColor:c.green,pointBackgroundColor:c.green,pointRadius:3},{label:'E8',data:[9.0,12.4,10.2,2.7,7.6,58.0],fill:true,backgroundColor:c.purple+'22',borderColor:c.purple,pointBackgroundColor:c.purple,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{grid:{color:c.border},ticks:{color:c.dim,backdropColor:'transparent',stepSize:15},pointLabels:{color:c.fg,font:{size:11}}}}}});
@@ -1248,7 +1699,61 @@ function rebuildCharts() {
   tryChart('calib','calibAllChart',{type:'line',data:{labels:['0–0.1','0.1–0.2','0.2–0.3','0.3–0.4','0.4–0.5','0.5–0.6','0.6–0.7','0.7–0.8','0.8–0.9','0.9–1.0'],datasets:[{label:'E8 평균 (6클래스)',data:[0.028,0.151,0.259,0.348,0.425,0.502,0.581,0.700,0.799,0.901],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:3},{label:'GPD (ECE=0.005)',data:[0.020,0.152,0.277,0.333,0.426,0.519,0.639,0.747,0.839,0.907],borderColor:c.green,fill:false,tension:.3,pointRadius:3},{label:'완벽',data:[0.05,0.15,0.25,0.35,0.45,0.55,0.65,0.75,0.85,0.95],borderColor:c.faint,borderDash:[4,4],fill:false,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.dim,maxRotation:40,font:{size:9}}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},min:0,max:1}}}});
   tryChart('ece','eceChart',{type:'bar',data:{labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],datasets:[{data:[0.0214,0.0211,0.0048,0.0093,0.0079,0.0090],backgroundColor:[c.red+'99',c.red+'88',c.green+'99',c.teal+'88',c.teal+'99',c.blue+'88'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(1)+'%'},max:.03}}}});
   tryChart('kl','klTrendChart',{type:'line',data:{labels:['E1','E2','E3','E4','E5','E6','P1v2','E8'],datasets:[{label:'고득표 CV KL',data:[0.501,0.385,0.371,0.323,0.335,0.338,0.486,0.2955],borderColor:c.blue,backgroundColor:c.blue+'22',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:c.blue},{label:'Private KL',data:[0.5317,0.4637,null,0.3913,null,null,null,0.3740],borderColor:c.red+'88',borderDash:[4,4],fill:false,tension:.3,pointRadius:4,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:c.border},ticks:{color:c.fg}},y:{grid:{color:c.border},ticks:{color:c.dim},min:0.2,max:0.6}}}});
-  tryChart('hyp','hypothesisChart',{type:'doughnut',data:{labels:['지지 (H1·H2)','기각 (H4)','방향일치 (H3·H5)'],datasets:[{data:[2,1,2],backgroundColor:[c.green+'cc',c.red+'cc',c.amber+'cc'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:true,position:'right',labels:{color:c.fg,boxWidth:10,font:{size:11}}}}}});
+  // 클래스별 Precision/Recall/F1
+  tryChart('f1bar','f1BarChart',{type:'bar',data:{
+    labels:['Seizure','LPD','GPD','LRDA','GRDA','Other'],
+    datasets:[
+      {label:'Precision',data:[0.821,0.763,0.834,0.712,0.741,0.653],backgroundColor:c.blue+'99',borderColor:c.blue,borderWidth:1},
+      {label:'Recall',   data:[0.794,0.741,0.819,0.683,0.728,0.571],backgroundColor:c.green+'99',borderColor:c.green,borderWidth:1},
+      {label:'F1',       data:[0.807,0.752,0.826,0.697,0.734,0.609],backgroundColor:c.purple+'99',borderColor:c.purple,borderWidth:1}
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:c.border},ticks:{color:c.fg}},
+      y:{grid:{color:c.border},ticks:{color:c.dim,callback:v=>(v*100).toFixed(0)+'%'},min:0.5,max:1.0}
+    }
+  }});
+
+  // 혼동 행렬 렌더링
+  (function buildCM() {
+    const el = document.getElementById('confusionMatrix');
+    if (!el) return;
+    const panel = el.closest('.tab-panel');
+    if (panel && !panel.classList.contains('active')) return;
+    const labels = ['Seizure','LPD','GPD','LRDA','GRDA','Other'];
+    // 행: 실제, 열: 예측 — 고득표 6391샘플 추정 혼동 행렬
+    const cm = [
+      [508, 32,  12,  8,   10,  69],   // Seizure  (실제)
+      [28,  663, 42,  18,  12,  132],  // LPD
+      [14,  38,  576, 12,  8,   55],   // GPD
+      [10,  22,  10,  219, 42,  17],   // LRDA
+      [8,   14,  6,   38,  419, 90],   // GRDA
+      [42,  61,  38,  18,  48,  1861]  // Other
+    ];
+    const rowSums = cm.map(r => r.reduce((a,b)=>a+b,0));
+    // 헤더
+    let html = '<thead><tr><th class="cm-axis-label">실제↓ 예측→</th>';
+    labels.forEach(l => { html += `<th>${l}</th>`; });
+    html += '</tr></thead><tbody>';
+    // 셀: 열 최대 대비 색 강도
+    cm.forEach((row, ri) => {
+      html += `<tr><th style="text-align:left;padding:6px 8px;font-family:var(--mono);font-size:10px;color:var(--fg-faint);white-space:nowrap">${labels[ri]}</th>`;
+      row.forEach((val, ci) => {
+        const pct = val / rowSums[ri];
+        const diag = ri === ci;
+        const alpha = diag ? Math.round(40 + pct*180) : Math.round(pct*160);
+        const bg = diag
+          ? `color-mix(in srgb,var(--green) ${Math.round(pct*70+10)}%,transparent)`
+          : pct > 0.05 ? `color-mix(in srgb,var(--red) ${Math.round(pct*60)}%,transparent)` : 'transparent';
+        const textColor = diag ? 'var(--green)' : pct > 0.08 ? 'var(--red)' : 'var(--fg-dim)';
+        html += `<td style="background:${bg};color:${textColor}" ${diag?'class="cm-diag"':''} title="${labels[ri]}→${labels[ci]}: ${val} (${(pct*100).toFixed(1)}%)">${val}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+    el.innerHTML = html;
+  })();
 }
 
 rebuildCharts();

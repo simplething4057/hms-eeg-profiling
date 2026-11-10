@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
@@ -66,8 +66,7 @@ app = FastAPI(
     version="1.1.0",
     description=(
         "E8 앙상블 (E4+E5 딥러닝 × 0.85 + P1 LightGBM × 0.15) + R1b 추론 플래그\n\n"
-        "**인증**: `/auth/login`에서 JWT 발급 후 Authorize 버튼에 토큰 입력\n\n"
-        "**시연 계정**: eeg_tech / tech1234 · resident / res1234 · neurologist / neuro1234"
+        "**인증**: `/auth/login`에서 JWT 발급 후 Authorize 버튼에 토큰 입력"
     ),
     lifespan=lifespan,
 )
@@ -227,6 +226,10 @@ async def predict_batch(
 async def predict_eeg_upload(
     request: Request,
     file: UploadFile = File(...),
+    include_report: bool = Query(False, description="True이면 임상 보고서를 응답에 포함"),
+    patient_id: str = Form("", description="환자 ID (선택)"),
+    patient_dob: str = Form("", description="생년월일 YYYY-MM-DD (선택)"),
+    referring_physician: str = Form("", description="의뢰 의사/과 (선택)"),
     user: Annotated[TokenData, Depends(require_permission("upload"))] = None,
 ) -> dict:
     """EEG parquet 파일 업로드 → 슬라이딩 윈도우 E8 앙상블 추론.
@@ -347,6 +350,30 @@ async def predict_eeg_upload(
             "confidence": confidence,
         })
 
+    clinical_report = None
+    if include_report:
+        prob_list = [best_wr["probabilities"][c] for c in CLASSES]
+        report_dict = generate_report(
+            segment_id=file.filename or "unknown",
+            prob=prob_list,
+            predicted_class=predicted_class,
+            flag=best_wr["r1b_flag"],
+            flag_reason=best_wr["r1b_flag_reason"],
+            model_used=best_wr["model_used"],
+            patient_info={
+                "patient_id": patient_id,
+                "patient_dob": patient_dob,
+                "referring_physician": referring_physician,
+            },
+            recording_params={
+                "montage": "더블 바나나 (16채널 차동 참조)",
+                "duration_sec": file_meta.get("duration_sec"),
+                "n_windows": file_meta.get("n_windows", 1),
+            },
+            all_windows=window_results,
+        )
+        clinical_report = ClinicalReport(**report_dict).model_dump()
+
     return {
         # 기존 단일 결과 필드 (최선 창 기준, backward compat)
         "segment_id": file.filename,
@@ -366,6 +393,8 @@ async def predict_eeg_upload(
         # 신규: 분석 ID & 알람
         "analysis_id": analysis_id,
         "alert": alert_info,
+        # 임상 보고서 (include_report=True 시 포함)
+        "clinical_report": clinical_report,
     }
 
 

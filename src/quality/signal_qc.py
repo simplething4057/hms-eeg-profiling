@@ -3,13 +3,18 @@
 - nan_ratio : 결측 비율
 - n_flat : 표준편차가 거의 0인(평탄) 채널 수
 - max_abs : 최대 절대 진폭 (과도 진폭 탐지)
+
+임계값 설계 의도:
+  HIGH_AMP = 1000 µV  → 하드 QC 플래그 (artifact 가능성 높음, nb03 분포 기준)
+  UI 경고는 300 µV    → 소프트 경고 (임상 주의 수준, 판독 보조용)
+  두 값이 다른 것은 의도적 : 300~1000 µV 구간은 판독자가 직접 판단하는 그레이존.
 """
 import warnings
 
 import numpy as np
 
 FLAT_STD = 1e-3
-HIGH_AMP = 1000.0  # µV, 초과 시 과도 진폭으로 표시 (nb03에서 분포 확인 후 조정)
+HIGH_AMP = 1000.0  # µV, 하드 QC 플래그 기준 (UI 소프트 경고 300 µV와 구분)
 
 
 def qc_stats(x: np.ndarray) -> dict:

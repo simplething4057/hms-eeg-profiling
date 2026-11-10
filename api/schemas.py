@@ -42,6 +42,11 @@ class ReportHeader(BaseModel):
     analyzed_at: str
     model: str
     disclaimer: str
+    patient_id: str = ""
+    patient_dob: str = ""
+    referring_physician: str = ""
+    montage: str = ""
+    recording_duration: str = ""
 
 
 class ReportFindings(BaseModel):
@@ -52,11 +57,14 @@ class ReportFindings(BaseModel):
     review_reason: str
     probability_distribution: list[str]
     description: str
+    eeg_features: str
+    iic_spectrum: str
 
 
 class ReportClinical(BaseModel):
     acns_criteria: str
     clinical_significance: str
+    background_activity: str = ""
 
 
 class ReportUrgency(BaseModel):
