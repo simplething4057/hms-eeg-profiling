@@ -24,7 +24,7 @@
 | 모델 | P1 LightGBM 5-fold (EC2 배포) + E4/E5 EfficientNet-B0 5-fold × 2 (로컬) |
 | 앙상블 | E8: 0.85 × DL_mean + 0.15 × P1 (DL 없으면 P1 단독) |
 | 추론 플래그 | R1b: 저확신(p_max < 0.47) 또는 편측·율동 근거 불일치 시 전문의 우선 확인 플래그 |
-| 단위 테스트 | pytest 5개 파일 (targets / montage / folds / metrics / reasoning) |
+| 단위 테스트 | pytest 5개 파일 · 37개 테스트 · 37/37 통과 (2026-11-10) |
 
 ### API 서버
 | 엔드포인트 | 설명 |
@@ -245,6 +245,43 @@ sudo systemctl status hms-eeg
 - **unit-tests** → pytest
 - **api-schema** → FastAPI import 검증
 - **build-and-push** → main 브랜치 push 시 ECR 자동 업로드
+
+## 주요 보완 내용 (2026-11-10)
+
+| # | 항목 | 파일 |
+|---|---|---|
+| 1 | 하드코딩 자격증명 제거 (UI placeholder · hint 텍스트) | `static/index.html` |
+| 2 | Swagger API 문서 자격증명 제거 | `api/main.py` |
+| 3 | XSS 방어: `renderAlerts()` innerHTML → DOM API (`createElement` / `textContent`) | `static/index.html` |
+| 4 | PDF 팝업 차단 시 Blob URL + `<a download>` fallback | `static/index.html` |
+| 5 | 생년월일 입력 `type=date` 로 교체 (다크 모드 `color-scheme:dark`) | `static/index.html` |
+| 6 | 환자 정보 유효성 검사 함수 `validatePatientInfo()` 추가 | `static/index.html` |
+| 7 | `P_LOW = 0.47` 모듈 상수 추가 — notebook 0.4 / API 0.47 / UI 0.47 통일 | `src/reasoning/report.py` |
+| 8 | `signal_qc` 2단계 임계값 설계 의도 문서화 (1000µV 하드 / 300µV 소프트) | `src/quality/signal_qc.py` |
+| 9 | `flip_spec()` 함수 추가 — LL↔RL, LP↔RP 체인 반전 (E5 증강 대응) | `src/data/montage.py` |
+| 10 | 테스트 의존성 추가: `pyarrow 25.0.1`, `torch 2.14.1+cpu`, `timm 1.0.31` | 로컬 가상 환경 |
+
+## 테스트 현황
+
+| 파일 | 테스트 수 | 커버 범위 |
+|---|---|---|
+| `tests/test_core.py` | 9 | targets(투표→확률), montage(더블 바나나), folds(patient 누수), metrics(KL·AUC) |
+| `tests/test_eeg_spec.py` | 4 | EEGSpectrogram STFT 변환 (모양·주파수 축·체인 위치), HMSNet 입력 방식, flip_spec 대응 |
+| `tests/test_preprocess.py` | 6 | Kaggle 경로 탐색, 보간·대역 통과, 슬라이딩 윈도우 패딩, QC 플래그, parquet end-to-end |
+| `tests/test_qeeg.py` | 11 | 상대 파워, 편측성, 국소성, 주기성, 율동성, 시간 변화, 배경 억제, HF 주기성, 지표 유한성 |
+| `tests/test_reasoning.py` | 6 | Youden 임계값, 근거 일치/불일치 플래그, 편측 오예측 검출, 저확신 플래그(`p_low=0.47`), Seizure 참고 축 |
+| **합계** | **37** | **37/37 통과 (2026-11-10)** |
+
+### 로컬 실행
+
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+.venv/Scripts/pip install pyarrow timm
+.venv/Scripts/pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+python -m pytest tests/ -v
+```
 
 ## 한계
 - HMS는 연속 기록이 아닌 구간 단위 데이터 : 시간당 오경보율 산출 불가, 특이도로 대체
