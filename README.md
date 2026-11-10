@@ -246,20 +246,43 @@ sudo systemctl status hms-eeg
 - **api-schema** → FastAPI import 검증
 - **build-and-push** → main 브랜치 push 시 ECR 자동 업로드
 
-## 주요 보완 내용 (2026-11-10)
+## 트러블슈팅
 
-| # | 항목 | 파일 |
-|---|---|---|
-| 1 | 하드코딩 자격증명 제거 (UI placeholder · hint 텍스트) | `static/index.html` |
-| 2 | Swagger API 문서 자격증명 제거 | `api/main.py` |
-| 3 | XSS 방어: `renderAlerts()` innerHTML → DOM API (`createElement` / `textContent`) | `static/index.html` |
-| 4 | PDF 팝업 차단 시 Blob URL + `<a download>` fallback | `static/index.html` |
-| 5 | 생년월일 입력 `type=date` 로 교체 (다크 모드 `color-scheme:dark`) | `static/index.html` |
-| 6 | 환자 정보 유효성 검사 함수 `validatePatientInfo()` 추가 | `static/index.html` |
-| 7 | `P_LOW = 0.47` 모듈 상수 추가 — notebook 0.4 / API 0.47 / UI 0.47 통일 | `src/reasoning/report.py` |
-| 8 | `signal_qc` 2단계 임계값 설계 의도 문서화 (1000µV 하드 / 300µV 소프트) | `src/quality/signal_qc.py` |
-| 9 | `flip_spec()` 함수 추가 — LL↔RL, LP↔RP 체인 반전 (E5 증강 대응) | `src/data/montage.py` |
-| 10 | 테스트 의존성 추가: `pyarrow 25.0.1`, `torch 2.14.1+cpu`, `timm 1.0.31` | 로컬 가상 환경 |
+### 1. 하드코딩 자격증명 노출 — `static/index.html`, `api/main.py`
+**발견** 로그인 화면 placeholder 텍스트와 힌트 박스에 실제 계정 정보가 HTML 소스에 그대로 포함돼 있었다. Swagger API 문서의 `description` 필드에도 동일한 자격증명이 노출돼 `/docs`에서 누구나 확인할 수 있는 상태였다.  
+**해결** placeholder를 역할명만 표시하도록 교체하고 힌트 박스 전체와 Swagger `description`의 계정 정보 문자열을 제거했다.
+
+### 2. XSS 취약점 — `renderAlerts()` — `static/index.html`
+**발견** `renderAlerts()` 함수가 서버로부터 받은 알람 ID, 메시지, 타임스탬프를 innerHTML 템플릿 리터럴에 직접 삽입하고 있었다. 악의적인 알람 메시지에 `<script>` 태그나 `onerror` 핸들러가 포함되면 브라우저에서 그대로 실행되는 반사형 XSS 구조였다.  
+**해결** `createElement` + `textContent`로 DOM을 직접 조작하도록 전면 재작성했다. 숫자형 ID는 `Number()`로 형변환하고 이벤트 핸들러도 `addEventListener`로 분리해 코드 주입 경로를 차단했다.
+
+### 3. PDF 팝업 차단 시 무음 실패 — `printReport()` — `static/index.html`
+**발견** `printReport()`가 `window.open()`으로 새 창을 열어 PDF를 출력하는 구조였다. 현대 브라우저는 팝업을 기본으로 차단하므로 `window.open()`이 `null`을 반환해도 아무런 오류 없이 종료됐고, 사용자는 버튼이 작동하지 않는다고만 느꼈다.  
+**해결** 반환값이 `null`이면 보고서 HTML을 Blob URL로 변환해 `<a download>`를 프로그래밍 방식으로 클릭하는 fallback을 추가했다. 파일명은 환자 ID 기반으로 특수문자를 제거해 생성했다.
+
+### 4. 생년월일 입력 형식 미검증 — `ptDob` — `static/index.html`
+**발견** 환자 생년월일 필드가 `type="text"`로 돼 있어 날짜 형식 검증이 전혀 없었다. 사용자마다 다양한 형식으로 입력할 수 있어 리포트 출력 시 일관성이 없었다. 다크 모드에서 브라우저 기본 date picker가 흰 배경으로 렌더링되는 부가 문제도 있었다.  
+**해결** `type="date"`로 교체해 브라우저 기본 날짜 선택기를 활용했다. 다크 모드 렌더링 문제는 인라인 스타일 `color-scheme: dark`를 추가해 해결했다.
+
+### 5. 환자 정보 미입력 상태로 분석 진행 — `analyzeFiles()` — `static/index.html`
+**발견** `analyzeFiles()`가 환자 정보 입력 여부를 확인하지 않아 이름·생년월일이 비어 있어도 분석이 그대로 진행됐다. 결과 리포트에 빈 환자 정보가 출력됐고, PDF 저장 시 파일명을 구성할 환자 ID가 없어 처리가 실패할 수 있었다.  
+**해결** `analyzeFiles()` 호출 전에 `validatePatientInfo()` 함수를 추가했다. 필수 항목(이름, 생년월일)이 비어 있으면 분석을 차단하고 사용자에게 경고 메시지를 표시한다.
+
+### 6. 저확신 임계값 불일치 — `src/reasoning/report.py`
+**발견** 저확신 플래그 임계값이 세 곳에서 각각 달랐다. 노트북 기본값 `0.4`, `api/predict.py`의 `P_LOW = 0.47`, UI 경고 조건 `0.47`이 혼재했다. `report.py`의 `confidence()`와 `make_report()`가 `p_low=0.4`를 기본값으로 사용해, 같은 구간을 API에서는 "저확신"으로 플래그하고 리포트에서는 "중간 신뢰도"로 출력하는 모순이 있었다.  
+**해결** `report.py`에 `P_LOW = 0.47` 모듈 상수를 추가하고 두 함수의 기본값을 `P_LOW`로 통일했다. 주석에 출처(nb06 R1b, 학습 fold 고득표 최고 확률 하위 20%)를 명시해 임의 변경을 방지했다.
+
+### 7. signal_qc 임계값 설계 의도 미문서화 — `src/quality/signal_qc.py`
+**발견** `HIGH_AMP = 1000µV`(하드 QC 플래그)와 UI 소프트 경고 임계값 `300µV`가 달라 코드 리뷰 시 "같은 개념에 다른 값이 쓰였다"는 오해를 유발할 수 있었다. 두 값이 다른 이유가 코드에 전혀 문서화돼 있지 않았다.  
+**해결** 모듈 docstring에 "300–1000µV 구간은 판독자가 직접 판단하는 그레이존이므로 두 임계값이 다른 것은 의도적 설계"임을 명시했다.
+
+### 8. flip_spec() 미구현 — 테스트 ImportError — `src/data/montage.py`
+**발견** `test_flip_consistent_between_eeg_and_spec` 테스트가 `montage.py`에서 `flip_spec`을 import하려 했지만 함수가 없어 `ImportError`로 실패했다. 이 테스트는 E5 좌우 반전 증강의 불변식(EEG 채널 `flip_lr` 후 생성한 스펙트로그램 = 원본 스펙트로그램 직접 반전)을 보장하기 위한 것이었다.  
+**해결** `flip_spec(arr)` 함수를 추가했다. `(4, H, W)` 체인 블록에서 LL↔RL, LP↔RP를 교환(`arr[[1, 0, 3, 2]]`)하며 `flip_lr`의 채널 교환과 수학적으로 동치임을 테스트가 검증한다.
+
+### 9. 테스트 의존성 누락 — 9개 테스트 스킵/실패
+**발견** `pyarrow` 미설치로 `test_preprocess.py`의 parquet 관련 3개 테스트가 스킵됐다. `torch` 미설치로 `test_eeg_spec.py`의 4개 테스트가 아예 실행되지 않았다. `timm` 미설치로 `test_hmsnet_modes_concat_width`가 `ModuleNotFoundError`로 실패했다. 세 패키지 모두 `requirements.txt`에 명시돼 있지 않아 로컬 환경에서 조용히 누락된 상태였다.  
+**해결** `pyarrow 25.0.1`, `torch 2.14.1+cpu`(`--index-url https://download.pytorch.org/whl/cpu`), `timm 1.0.31`을 가상 환경에 설치하고 전체 37개 테스트 통과를 확인했다.
 
 ## 테스트 현황
 
