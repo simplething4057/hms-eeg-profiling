@@ -29,3 +29,9 @@ def double_banana(eeg: pd.DataFrame) -> np.ndarray:
 def flip_lr(x: np.ndarray) -> np.ndarray:
     """(16, T) 몽타주 신호의 좌우 체인을 교체한다. 편측 라벨은 '어느 쪽이든 편측'이므로 유지된다."""
     return x[FLIP_INDEX]
+
+
+def flip_spec(arr: np.ndarray) -> np.ndarray:
+    """(4, H, W) 체인별 스펙트로그램의 좌우 체인을 교체한다 (LL↔RL, LP↔RP).
+    flip_lr 증강과 대응 : EEG 채널을 반전한 뒤 만든 스펙트로그램과 동치."""
+    return arr[[1, 0, 3, 2]]
